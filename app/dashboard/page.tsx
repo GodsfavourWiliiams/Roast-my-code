@@ -30,15 +30,17 @@ export default function DashboardPage() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Toxic Command Center</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Toxic Command Center
+          </h1>
           <p className="text-muted-foreground">
             Welcome back, code-monkey. Ready to have your feelings hurt today?
           </p>
         </div>
         <div className="flex items-center gap-2">
-            <Button className="h-10 font-semibold">
-                <PlusIcon strokeWidth={4} /> Link More Trash
-            </Button>
+          <Button className="h-10 font-semibold">
+            <PlusIcon strokeWidth={4} /> Link More Trash
+          </Button>
         </div>
       </div>
 
@@ -46,9 +48,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Egos Bruised
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Egos Bruised</CardTitle>
             <Flame className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
@@ -91,7 +91,11 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">
               Hostages (Repos)
             </CardTitle>
-            <GithubLogo size={16} weight="bold" className="text-muted-foreground" />
+            <GithubLogo
+              size={16}
+              weight="bold"
+              className="text-muted-foreground"
+            />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">7</div>
@@ -104,47 +108,73 @@ export default function DashboardPage() {
 
       {/* Main Content Area: Recent Activity & Repo List */}
       <div className="grid gap-6 md:grid-cols-7">
-        
         {/* Recent Roasts Table */}
         <Card className="col-span-4 lg:col-span-5 border-border">
-          <CardHeader className="px-5">
+          <CardHeader>
             <CardTitle>Recent Slaughter</CardTitle>
             <CardDescription>
-              A list of pull requests that didn&lsquo;t stand a chance.
+              A list of pull requests that didn&apos;t stand a chance.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px] px-5">Project</TableHead>
-                  <TableHead className="px-5">PR Attempt</TableHead>
-                  <TableHead className="px-5">Outcome</TableHead>
-                  <TableHead className="px-5">Cruelty</TableHead>
-                  <TableHead className="text-right px-5">Moment of Failure</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentRoasts.map((roast) => (
-                  <TableRow key={roast.id}>
-                    <TableCell className="font-medium p-5">{roast.repo}</TableCell>
-                    <TableCell className="p-5">{roast.prTitle}</TableCell>
-                    <TableCell className="p-5">
-                        <Badge variant={roast.status === "Roasted" ? "destructive" : "outline"} className={roast.status === "Approved" ? "bg-green-500 hover:bg-green-600 border-transparent text-white" : ""}>
-                            {roast.status === "Roasted" ? "DESTROYED" : roast.status === "Approved" ? "SURE, WHATEVER" : "JUDGING..."}
-                        </Badge>
-                    </TableCell>
-                    <TableCell className="p-5">
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold">{roast.score}/10</span>
-                            {roast.score > 8 && <Flame className="h-3 w-3 text-orange-500" />}
-                        </div>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground p-5">{roast.date}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px] px-5">Project</TableHead>
+                    <TableHead className="px-5">PR Attempt</TableHead>
+                    <TableHead className="px-5">Outcome</TableHead>
+                    <TableHead className="px-5">Cruelty</TableHead>
+                    <TableHead className="text-right px-5">
+                      Moment of Failure
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {recentRoasts.map((roast) => (
+                    <TableRow key={roast.id}>
+                      <TableCell className="font-medium whitespace-nowrap p-5">
+                        {roast.repo}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap p-5">
+                        {roast.prTitle}
+                      </TableCell>
+                      <TableCell className="p-5">
+                        <Badge
+                          variant={
+                            roast.status === 'Roasted'
+                              ? 'destructive'
+                              : 'outline'
+                          }
+                          className={
+                            roast.status === 'Approved'
+                              ? 'bg-green-500 hover:bg-green-600 border-transparent text-white'
+                              : ''
+                          }
+                        >
+                          {roast.status === 'Roasted'
+                            ? 'DESTROYED'
+                            : roast.status === 'Approved'
+                            ? 'SURE, WHATEVER'
+                            : 'JUDGING...'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="p-5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{roast.score}/10</span>
+                          {roast.score > 8 && (
+                            <Flame className="h-3 w-3 text-orange-500" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right p-5 text-muted-foreground whitespace-nowrap">
+                        {roast.date}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 
@@ -158,30 +188,34 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
-                {linkedRepos.map((repo) => (
-                    <div key={repo.name} className="flex items-center">
-                        <Avatar className="h-9 w-9 rounded-none border border-border">
-                            <AvatarImage src={repo.icon} alt="Avatar" />
-                            <AvatarFallback>GH</AvatarFallback>
-                        </Avatar>
-                        <div className="ml-4 space-y-1">
-                            <p className="text-sm font-medium leading-none">{repo.name}</p>
-                            <p className="text-xs text-muted-foreground">{repo.desc}</p>
-                        </div>
-                        <div className="ml-auto font-medium text-xs text-muted-foreground">
-                            {repo.lastActive}
-                        </div>
-                    </div>
-                ))}
+              {linkedRepos.map((repo) => (
+                <div key={repo.name} className="flex items-center">
+                  <Avatar className="h-9 w-9 rounded-none border border-border">
+                    <AvatarImage src={repo.icon} alt="Avatar" />
+                    <AvatarFallback>GH</AvatarFallback>
+                  </Avatar>
+                  <div className="ml-4 space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {repo.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{repo.desc}</p>
+                  </div>
+                  <div className="ml-auto font-medium text-xs text-muted-foreground">
+                    {repo.lastActive}
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="mt-6">
-                <Button variant="outline" className="w-full">View All Shame</Button>
+              <Button variant="outline" className="w-full">
+                View All Shame
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
-  )
+  );
 }
 
 // Mock Data

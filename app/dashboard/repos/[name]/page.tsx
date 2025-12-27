@@ -13,20 +13,22 @@ export default async function RepoDetailsPage({
   const decodedName = decodeURIComponent(name)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-8 max-w-5xl mx-auto pb-10">
+      <div className="flex items-center gap-4 border-b pb-6">
         <Link href="/dashboard/repos">
-            <Button variant="ghost" size="icon">
-                <ArrowLeft size={20} />
+            <Button variant="outline" size="icon" className="h-10 w-10">
+                <ArrowLeft size={20} weight="bold" />
             </Button>
         </Link>
         <div>
-            <h1 className="text-3xl font-bold tracking-tight">{decodedName}</h1>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                {decodedName}
+            </h1>
             <p className="text-muted-foreground">Detailed autopsy of this codebase.</p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
         <Card>
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Violations</CardTitle>
