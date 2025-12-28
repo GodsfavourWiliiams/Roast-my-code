@@ -16,7 +16,6 @@ import {
   WarningIcon,
   CheckCircleIcon,
   WarningOctagonIcon,
-  FireIcon,
   CalendarBlankIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import Link from 'next/link';
@@ -38,14 +37,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { ManualRoastDialog } from "@/components/manual-roast-dialog";
+import { ManualRoastDialog } from '@/components/manual-roast-dialog';
 
 // Explanation of "Roast Manually":
 // Normally, the bot waits for a GitHub Webhook (Pull Request).
 // "Manual Roast" allows the user to paste a snippet or select a file *right now*
 // to get instant feedback without needing to push code to GitHub.
 
-export default function RepoDetailsPage({ params }: { params: Promise<{ name: string }> }) {
+export default function RepoDetailsPage({
+  params,
+}: {
+  params: Promise<{ name: string }>;
+}) {
   return <RepoDetailsContent params={params} />;
 }
 
@@ -115,8 +118,8 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
     <div className="space-y-8 max-w-5xl mx-auto pb-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
-        <div className="flex items-center gap-4 max-w-2xl">
-          <Link href="/dashboard/repos">
+        <div className="flex items-start gap-4 max-w-2xl">
+          <Link href="/dashboard/repos" className="mt-1">
             <Button
               variant="outline"
               size="icon"
@@ -137,11 +140,11 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
             </h1>
 
             <div className="relative">
-              <p className="text-muted-foreground line-clamp-2 pr-4">
+              <p className="text-muted-foreground line-clamp-1 pr-4">
                 {repoDetails.description || 'No description provided.'}
               </p>
               {repoDetails.description &&
-                repoDetails.description.length > 100 && (
+                repoDetails.description.length > 70 && (
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button
@@ -165,9 +168,9 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
           </div>
         </div>
 
-        <ManualRoastDialog 
-            repoName={repoDetails.full_name} 
-            repoId={repoDetails.id} 
+        <ManualRoastDialog
+          repoName={repoDetails.full_name}
+          repoId={repoDetails.id}
         />
       </div>
 
@@ -212,7 +215,9 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
           <CardContent>
             <div className="text-2xl font-bold text-green-500 flex items-center gap-2">
               <CheckCircleIcon size={24} weight="fill" />{' '}
-              {repoDetails.stats.survivalRate}%
+              {repoDetails.stats.survivalRate === -1
+                ? 'N/A'
+                : `${repoDetails.stats.survivalRate}%`}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               PRs passed without roast
@@ -223,7 +228,7 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
 
       {/* Roast History (Refactored) */}
       <Card className="overflow-hidden">
-        <CardHeader className="bg-muted/30 border-b">
+        <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2">
             <GitPullRequestIcon weight="bold" /> Roast History
           </CardTitle>

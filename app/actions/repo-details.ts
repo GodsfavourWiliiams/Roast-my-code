@@ -37,8 +37,7 @@ export async function getRepoDetails(repoName: string): Promise<{ data: RepoDeta
     return { data: null, error: 'Not authenticated' };
   }
 
-  // 1. Fetch the Repository by Name (and ensure it belongs to the user)
-  // We match on 'name' because that's what's in the URL parameter
+  // 1. Fetch Repository
   const { data: repo, error: repoError } = await supabase
     .from('repositories')
     .select('*')
@@ -51,7 +50,7 @@ export async function getRepoDetails(repoName: string): Promise<{ data: RepoDeta
     return { data: null, error: 'Repository not found' };
   }
 
-  // 2. Fetch the Roasts for this Repository
+  // 2. Fetch Roasts
   const { data: roasts, error: roastsError } = await supabase
     .from('roasts')
     .select('*')
@@ -63,18 +62,26 @@ export async function getRepoDetails(repoName: string): Promise<{ data: RepoDeta
     return { data: null, error: 'Failed to load roast history' };
   }
 
-  // 3. Calculate Stats (Mock logic for now, utilizing real data counts)
-  // In a real LLM scenario, "Critical Issues" might be a count of roasts with score > 8
+  // 3. Logic-Driven Statistics
+  
+  // Total Violations = Total number of Roasts (Manual + PR)
   const totalViolations = roasts.length;
   
-  // Let's say any roast with score >= 8 is a "Critical Issue"
-  const criticalIssues = roasts.filter(r => (r.roast_score || 0) >= 8).length;
+  // Critical Issues = Roasts with a score of 3 or lower (Objective garbage)
+  const criticalIssues = roasts.filter(r => r.roast_score !== null && r.roast_score <= 3).length;
 
-  // Survival Rate: Percentage of PRs (roasts) with score < 5 (Low impact)
-  // If 0 roasts, survival is 100% (innocent until proven guilty)
-  const survivalRate = totalViolations === 0 
-    ? 100 
-    : Math.round((roasts.filter(r => (r.roast_score || 0) < 5).length / totalViolations) * 100);
+  // Survival Rate = Strictly based on Pull Requests (PRs)
+  // Survival = PR score >= 7
+  const prRoasts = roasts.filter(r => r.pr_number !== null);
+  const totalPrs = prRoasts.length;
+  const prSurvivors = prRoasts.filter(r => r.roast_score !== null && r.roast_score >= 7).length;
+
+  // If no PRs have been roasted yet, we return -1 to signal "N/A" in the UI
+  const survivalRate = totalPrs === 0 
+    ? -1 
+    : Math.round((prSurvivors / totalPrs) * 100);
+
+  console.log(`[Stats/${repoName}] Total:${totalViolations} | Critical:${criticalIssues} | PRs:${totalPrs} | Survival:${survivalRate}%`);
 
   return {
     data: {

@@ -13,16 +13,17 @@ export interface GithubRepo {
 }
 
 export interface Repository {
-  id?: number; 
+  id?: number;
   name: string;
   full_name: string;
   description: string;
   language: string;
+  framework?: string | null;
   stars: string;
   forks: string;
   watchers: string;
   updatedAt: string;
-  status: "Running" | "Paused";
+  status: 'Running' | 'Paused';
   private: boolean;
-  pendingMurders: number;
+  pending_murders: number;
 }
