@@ -36,7 +36,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { RepoCard } from '@/components/repo-card';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
@@ -67,20 +67,29 @@ function useDebounceValue<T>(value: T, delay: number): T {
 export default function ReposPage() {
   const [filter, setFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Search states
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
+  const debouncedModalSearch = useDebounceValue(modalSearchQuery, 500);
+  
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
+  const debouncedDashboardSearch = useDebounceValue(dashboardSearchQuery, 500);
+
   const [importingId, setImportingId] = useState<number | null>(null);
-  const debouncedSearch = useDebounceValue(searchQuery, 500);
   const queryClient = useQueryClient();
 
-  // Query for saved repositories
+  // Query for saved repositories (Server-side search & filter)
   const { 
     data: savedReposData, 
     isLoading: isLoadingSaved, 
     isError: isErrorSaved 
   } = useQuery({
-    queryKey: ['savedRepos'],
+    queryKey: ['savedRepos', debouncedDashboardSearch, filter],
     queryFn: async () => {
-      const { repos, error } = await getSavedRepos();
+      const { repos, error } = await getSavedRepos({ 
+        search: debouncedDashboardSearch, 
+        filter 
+      });
       if (error) throw new Error(error);
       return repos;
     },
@@ -93,10 +102,10 @@ export default function ReposPage() {
     isError: isErrorGithub,
     error: githubError,
   } = useQuery({
-    queryKey: ['githubRepos', debouncedSearch],
+    queryKey: ['githubRepos', debouncedModalSearch],
     queryFn: async () => {
       const { repos, error } = await fetchGithubRepos({ 
-        search: debouncedSearch 
+        search: debouncedModalSearch 
       });
       if (error) throw new Error(error);
       return repos;
@@ -127,6 +136,7 @@ export default function ReposPage() {
   const repositories: Repository[] = savedReposData?.map((r: SavedRepo) => ({
     id: r.id,
     name: r.name,
+    full_name: r.full_name,
     description: r.description || 'No description provided (lazy).',
     language: r.language || 'Unknown',
     stars: '0', 
@@ -137,13 +147,6 @@ export default function ReposPage() {
     private: r.private,
     pendingMurders: 0 
   })) || [];
-
-  const filteredRepos = repositories.filter((repo) => {
-    if (filter === 'all') return true;
-    if (filter === 'running') return repo.status === 'Running';
-    if (filter === 'paused') return repo.status === 'Paused';
-    return true;
-  });
 
   const container = {
     hidden: { opacity: 0 },
@@ -191,7 +194,7 @@ export default function ReposPage() {
 
         <Dialog open={isOpen} onOpenChange={(open) => {
           setIsOpen(open);
-          if (!open) setSearchQuery(''); // Reset search on close
+          if (!open) setModalSearchQuery(''); // Reset search on close
         }}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -224,8 +227,8 @@ export default function ReposPage() {
                 <Input
                   placeholder="Search your repositories..."
                   className="pl-9"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={modalSearchQuery}
+                  onChange={(e) => setModalSearchQuery(e.target.value)}
                 />
               </div>
             </div>
@@ -253,7 +256,7 @@ export default function ReposPage() {
                         </div>
                         ) : githubRepos?.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
-                            <p>No repositories found matching &quot;{debouncedSearch}&quot;.</p>
+                            <p>No repositories found matching &quot;{debouncedModalSearch}&quot;.</p>
                         </div>
                         ) : (
                         <>
@@ -313,6 +316,8 @@ export default function ReposPage() {
             placeholder="Search for specific trash..."
             className="pl-8 max-w-md w-full h-10"
             disabled={isLoadingSaved}
+            value={dashboardSearchQuery}
+            onChange={(e) => setDashboardSearchQuery(e.target.value)}
           />
         </div>
         <DropdownMenu>
@@ -369,14 +374,14 @@ export default function ReposPage() {
             </Card>
           ))}
         </div>
-      ) : filteredRepos.length > 0 ? (
+      ) : repositories.length > 0 ? (
         <motion.div
           className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           variants={container}
           initial="hidden"
           animate="show"
         >
-          {filteredRepos.map((repo) => (
+          {repositories.map((repo) => (
             <RepoCard key={repo.name} repo={repo} />
           ))}
         </motion.div>

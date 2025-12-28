@@ -155,17 +155,30 @@ export interface SavedRepo {
     updated_at: string;
 }
 
-export async function getSavedRepos(): Promise<{ repos: SavedRepo[]; error: string | null }> {
+export async function getSavedRepos({ search = '', filter = 'all' }: { search?: string; filter?: string } = {}): Promise<{ repos: SavedRepo[]; error: string | null }> {
   const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated', repos: [] };
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('repositories')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
+
+  if (search) {
+    query = query.ilike('name', `%${search}%`);
+  }
+
+  if (filter !== 'all') {
+    // Assuming filter maps directly to status 'Running' or 'Paused' (case sensitive in DB usually)
+    // Front end sends 'running' | 'paused' | 'all'
+    const status = filter.charAt(0).toUpperCase() + filter.slice(1);
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching saved repos:', error);

@@ -13,8 +13,9 @@ export interface GithubRepo {
 }
 
 export interface Repository {
-  id?: number; // Optional because it might not be in the UI view or comes from DB ID vs GitHub ID
+  id?: number; 
   name: string;
+  full_name: string;
   description: string;
   language: string;
   stars: string;
