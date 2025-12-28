@@ -16,8 +16,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Roast My Code',
-  description: 'The AI Senior Engineer that hates your code.',
+  title: 'RoastBot | AI Code Reviewer',
+  description: 'The AI Senior Engineer that hates your code. Automated code reviews with a brutal personality.',
+  icons: {
+    icon: '/logo.svg',
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({
