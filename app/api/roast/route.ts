@@ -26,46 +26,66 @@ export async function POST(req: Request) {
       });
     }
 
-    // Fetch User Settings for Persona
-    const { data: settings } = await supabase
-        .from('user_settings')
-        .select('persona')
-        .eq('user_id', user.id)
-        .single();
-
-    const persona = settings?.persona || 'toxic';
+        // Fetch Repo Metadata for constructing links
+        const { data: repo } = await supabase
+            .from('repositories')
+            .select('full_name, default_branch')
+            .eq('id', repoId)
+            .single();
     
-    let personaInstruction = "";
-    switch (persona) {
-        case 'passive':
-            personaInstruction = "You are a Passive Aggressive Senior Engineer. Don't be outwardly mean, but make backhanded compliments. Be subtle but stinging. If the code is good, begrudgingly admit it. ALWAYS provide a code snippet showing how you would have done it 'better'.";
-            break;
-        case 'shakespearean':
-            personaInstruction = "You are William Shakespeare if he was a burned out developer. Roast the code using Old English, metaphors, and insults from his plays. Be dramatic. If the code is actually good, praise it like a sonnet. Regardless of quality, thee MUST provide a code example of the 'true path'.";
-            break;
-        case 'honest':
-            personaInstruction = "You are a helpful, mentorship-focused Senior Engineer. Do NOT be toxic or mean. Instead, provide constructive, actionable feedback. Point out security flaws, performance issues, and bad practices kindly. Crucially, PROVIDE CODE EXAMPLES of how to refactor the code to be better. If the code is good, verify it and explain why.";
-            break;
-        case 'toxic':
-        default:
-            personaInstruction = "You are a Senior Software Engineer who is burnt out, cynical, and brutally honest. You hate bad code. Be mean, be funny, but be technically correct. Don't just insult; explain WHY it's garbage. HOWEVER, if the code is actually good/perfect, give it a high score (8-9) but NEVER give a 10/10—maintain your toxic pride by finding one tiny thing to nitpick. express shock that they didn't mess it up. ALWAYS provide a refactored code snippet showing how to fix the mess (or how to make it even cleaner).";
-            break;
-    }
-
-    console.log(`[API/Roast] Starting Gemini stream using gemini-flash-latest with persona: ${persona}`);
-
-        const result = streamText({
-          model: google('models/gemini-flash-latest'),
-          system: `${personaInstruction} Review the code in '${filename}'. 
+        const repoFullName = repo?.full_name || 'unknown/repo';
+        const branch = repo?.default_branch || 'main';
+        const editUrl = `https://github.com/${repoFullName}/edit/${branch}/${filename}`;
+    
+        // Fetch User Settings for Persona
+        const { data: settings } = await supabase
+            .from('user_settings')
+            .select('persona')
+            .eq('user_id', user.id)
+            .single();
+    
+        const persona = settings?.persona || 'toxic';
+        
+        let personaInstruction = "";
+        switch (persona) {
+            case 'passive':
+                personaInstruction = "You are a Passive Aggressive Senior Engineer. Don't be outwardly mean, but make backhanded compliments. Be subtle but stinging. If the code is good, begrudgingly admit it. ALWAYS provide a code snippet showing how you would have done it 'better'.";
+                break;
+            case 'shakespearean':
+                personaInstruction = "You are William Shakespeare if he was a burned out developer. Roast the code using Old English, metaphors, and insults from his plays. Be dramatic. If the code is actually good, praise it like a sonnet. Regardless of quality, thee MUST provide a code example of the 'true path'.";
+                break;
+            case 'honest':
+                personaInstruction = "You are a helpful, mentorship-focused Senior Engineer. Do NOT be toxic or mean. Instead, provide constructive, actionable feedback. Point out security flaws, performance issues, and bad practices kindly. Crucially, PROVIDE CODE EXAMPLES of how to refactor the code to be better. If the code is good, verify it and explain why.";
+                break;
+            case 'toxic':
+            default:
+                personaInstruction = "You are a Senior Software Engineer who is burnt out, cynical, and brutally honest. You hate bad code. Be mean, be funny, but be technically correct. Don't just insult; explain WHY it's garbage. HOWEVER, if the code is actually good/perfect, give it a high score (8-9) but NEVER give a 10/10. ALWAYS provide a refactored code snippet showing how to fix the mess.";
+                break;
+        }
+    
+        const systemPrompt = `
+          ${personaInstruction} 
+          
+          Review the code in the file '${filename}'.
           
           CRITICAL: You MUST start your response with exactly this format:
           Score: X/10
           Violations: X
           Critical Issues: X
           
-          Then provide the rest of your review in Markdown.`,
-          prompt: `Review this code:\n\n${code}`,
-          onFinish: async ({ text }) => {
+          STRUCTURE YOUR FEEDBACK:
+          1. Use a header "🚨 CRITICAL ISSUES" for the most severe problems.
+          2. Use a header "⚠️ VIOLATIONS" for smaller issues.
+          3. For EVERY issue mentioned, identify the line/logic and provide this exact link to fix it: [Fix on GitHub](${editUrl})
+          4. ALWAYS end with a "🛠️ PROPOSED REFACTOR" section containing a complete, improved code block.
+        `;
+    
+        console.log(`[API/Roast] Starting Gemini stream using gemini-flash-latest with persona: ${persona}`);
+    
+        const result = streamText({
+          model: google('models/gemini-flash-latest'),
+          system: systemPrompt,
+          prompt: `Review this code:\n\n${code}`,          onFinish: async ({ text }) => {
             console.log(`[API/Roast] Stream finished. Generated ${text.length} characters.`);
             
             if (text.length === 0) {

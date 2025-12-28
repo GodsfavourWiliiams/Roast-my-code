@@ -145,7 +145,7 @@ export default function ReposPage() {
       stars: '0',
       forks: '0',
       watchers: '0',
-      updatedAt: new Date(r.updated_at).toLocaleDateString(),
+      updated_at: new Date(r.updated_at).toLocaleDateString(),
       status: r.status,
       private: r.private,
       pending_murders: r.open_prs_count || 0,

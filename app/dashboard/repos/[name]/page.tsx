@@ -38,6 +38,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ManualRoastDialog } from '@/components/manual-roast-dialog';
+import { MarkdownRenderer } from '@/components/markdown-renderer';
 
 // Explanation of "Roast Manually":
 // Normally, the bot waits for a GitHub Webhook (Pull Request).
@@ -185,7 +186,7 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
           <CardContent>
             <div className="text-2xl font-bold text-destructive flex items-center gap-2">
               <SkullIcon size={24} weight="fill" />{' '}
-              {repoDetails.stats.totalViolations}
+              {repoDetails.stats.total_violations}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Code crimes detected
@@ -201,7 +202,7 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
           <CardContent>
             <div className="text-2xl font-bold text-orange-500 flex items-center gap-2">
               <WarningIcon size={24} weight="fill" />{' '}
-              {repoDetails.stats.criticalIssues}
+              {repoDetails.stats.critical_issues}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Immediate refactor needed
@@ -215,9 +216,9 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
           <CardContent>
             <div className="text-2xl font-bold text-green-500 flex items-center gap-2">
               <CheckCircleIcon size={24} weight="fill" />{' '}
-              {repoDetails.stats.survivalRate === -1
+              {repoDetails.stats.survival_rate === -1
                 ? 'N/A'
-                : `${repoDetails.stats.survivalRate}%`}
+                : `${repoDetails.stats.survival_rate}%`}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               PRs passed without roast
@@ -275,14 +276,11 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
                       </Badge>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="bg-muted/50 rounded-md p-4 border border-border/50">
-                      <p className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                        {roast.roast_content}
-                      </p>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                                              <AccordionContent>
+                                                  <div className="bg-card rounded-md p-6 border border-border/50 shadow-sm">
+                                                      <MarkdownRenderer content={roast.roast_content} />
+                                                  </div>
+                                              </AccordionContent>                </AccordionItem>
               ))}
             </Accordion>
           ) : (

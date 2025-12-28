@@ -2,11 +2,9 @@
 
 import {
   House,
-  GithubLogo,
-  Lightning,
-  ChartBar,
-  Gear,
-  SignOut,
+  GithubLogoIcon,
+  GearIcon,
+  SignOutIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import { Flame } from 'lucide-react';
 import Link from 'next/link';
@@ -15,9 +13,6 @@ import { usePathname } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -45,25 +40,25 @@ const items = [
   {
     title: 'The Cemetery',
     url: '/dashboard/repos',
-    icon: GithubLogo,
+    icon: GithubLogoIcon,
     tooltip: "Repositories you've abandoned",
   },
-  {
-    title: 'Brutal History',
-    url: '/dashboard/roasts',
-    icon: Lightning,
-    tooltip: 'Log of past insults',
-  },
-  {
-    title: 'Pain Analytics',
-    url: '/dashboard/analytics',
-    icon: ChartBar,
-    tooltip: 'Charts showing your decline',
-  },
+  // {
+  //   title: 'Brutal History',
+  //   url: '/dashboard/roasts',
+  //   icon: Lightning,
+  //   tooltip: 'Log of past insults',
+  // },
+  // {
+  //   title: 'Pain Analytics',
+  //   url: '/dashboard/analytics',
+  //   icon: ChartBar,
+  //   tooltip: 'Charts showing your decline',
+  // },
   {
     title: 'Compliance',
     url: '/dashboard/settings',
-    icon: Gear,
+    icon: GearIcon,
     tooltip: 'Settings & Security',
   },
 ];
@@ -148,7 +143,7 @@ export function AppSidebar() {
                 className="text-destructive font-bold focus:bg-destructive/10 focus:text-destructive gap-2 cursor-pointer"
                 onClick={logout}
               >
-                <SignOut size={16} weight="bold" />
+                <SignOutIcon size={16} weight="bold" />
                 Terminate Session
               </DropdownMenuItem>
             </DropdownMenuContent>

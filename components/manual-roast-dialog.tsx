@@ -17,9 +17,10 @@ import {
   CircleNotchIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import { FileExplorer } from '@/components/file-explorer';
-import { fetchFileContent } from '@/app/actions/github-files';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { toast } from 'sonner';
+import { fetchFileContent } from "@/app/actions/github-files"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { toast } from "sonner"
 import { useQueryClient } from '@tanstack/react-query';
 
 interface ManualRoastDialogProps {
@@ -197,10 +198,9 @@ export function ManualRoastDialog({
                   <span>Reading code...</span>
                 </div>
               )}
-              <div className="prose prose-sm dark:prose-invert max-w-none font-mono whitespace-pre-wrap">
-                {completion}
-              </div>
-            </ScrollArea>
+                                  <div className="p-6">
+                                      <MarkdownRenderer content={completion} />
+                                  </div>            </ScrollArea>
           )}
         </div>
       </DialogContent>
