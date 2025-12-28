@@ -190,7 +190,7 @@ export default function DashboardPage() {
             <div className="space-y-8">
               {linkedRepos.map((repo) => (
                 <div key={repo.name} className="flex items-center">
-                  <Avatar className="h-9 w-9 rounded-none border border-border">
+                  <Avatar className="h-9 w-9">
                     <AvatarImage src={repo.icon} alt="Avatar" />
                     <AvatarFallback>GH</AvatarFallback>
                   </Avatar>
