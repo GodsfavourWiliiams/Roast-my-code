@@ -38,11 +38,11 @@ export async function fetchDashboardStats(): Promise<{ stats: DashboardStats; er
 
   // 2. Tears Litres = Sum of roast scores (just a fun metric derivation)
   // We need to fetch scores to sum them
-  const { data: roasts, error: roastsError } = await supabase
+  const { data: roasts } = await supabase
     .from('roasts')
     .select('roast_score')
     .eq('user_id', user.id);
-  
+
   let totalScore = 0;
   if (roasts) {
     totalScore = roasts.reduce((acc, curr) => acc + (curr.roast_score || 0), 0);
@@ -52,11 +52,11 @@ export async function fetchDashboardStats(): Promise<{ stats: DashboardStats; er
   const tearsLitres = parseFloat((totalScore * 0.5).toFixed(1));
 
   // 3. Objective Garbage = Number of Repos with status 'Running'
-  const { count: objectiveGarbage, error: repoError } = await supabase
-     .from('repositories')
-     .select('*', { count: 'exact', head: true })
-     .eq('user_id', user.id)
-     .eq('status', 'Running');
+  const { count: objectiveGarbage } = await supabase
+    .from('repositories')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('status', 'Running');
 
   return {
     stats: {
@@ -89,6 +89,7 @@ export async function fetchRecentRoasts(): Promise<{ roasts: RecentRoast[]; erro
       )
     `)
     .eq('user_id', user.id)
+    .not('pr_number', 'is', null) // Only include actual PRs
     .order('created_at', { ascending: false })
     .limit(5);
 
@@ -97,14 +98,29 @@ export async function fetchRecentRoasts(): Promise<{ roasts: RecentRoast[]; erro
     return { roasts: [], error: error.message };
   }
 
-  const roasts: RecentRoast[] = data.map((item: any) => ({
-    id: item.id,
-    title: item.pr_title || 'Unknown PR',
-    repoName: item.repositories?.name || 'Unknown Repo',
-    roastScore: item.roast_score || 0,
-    description: item.roast_content,
-    date: item.created_at,
-  }));
+  type RoastQueryResult = {
+    id: number;
+    pr_title: string | null;
+    roast_content: string | null;
+    roast_score: number | null;
+    created_at: string;
+    repositories: { name: string } | { name: string }[] | null;
+  };
+
+  const roasts: RecentRoast[] = (data || []).map((item: RoastQueryResult) => {
+    const repo = Array.isArray(item.repositories)
+      ? item.repositories[0]
+      : item.repositories;
+
+    return {
+      id: item.id,
+      title: item.pr_title || 'Unknown PR',
+      repoName: repo?.name || 'Unknown Repo',
+      roastScore: item.roast_score || 0,
+      description: item.roast_content || '',
+      date: item.created_at,
+    };
+  });
 
   return {
     roasts,

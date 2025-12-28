@@ -1,0 +1,116 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { fetchRepoContents, FileNode } from "@/app/actions/github-files"
+import { Folder, FileCode, ChevronLeft, CircleNotch } from "@phosphor-icons/react"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
+
+interface FileExplorerProps {
+  repoFullName: string
+  onFileSelect: (path: string) => void
+}
+
+export function FileExplorer({ repoFullName, onFileSelect }: FileExplorerProps) {
+  const [currentPath, setCurrentPath] = useState("")
+  const [files, setFiles] = useState<FileNode[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadPath(currentPath)
+  }, [currentPath])
+
+  const loadPath = async (path: string) => {
+    setIsLoading(true)
+    setError(null)
+    const { data, error } = await fetchRepoContents(repoFullName, path)
+    if (error) {
+      setError(error)
+    } else {
+      setFiles(data || [])
+    }
+    setIsLoading(false)
+  }
+
+  const handleNavigate = (path: string) => {
+    setCurrentPath(path)
+  }
+
+  const handleBack = () => {
+    const parts = currentPath.split('/')
+    parts.pop()
+    setCurrentPath(parts.join('/'))
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[300px] text-destructive">
+        <p className="font-bold mb-2">Failed to load files</p>
+        <p className="text-xs text-center px-4">{error}</p>
+        <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-4" 
+            onClick={() => loadPath(currentPath)}
+        >
+            Try Again
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full border rounded-md overflow-hidden bg-background">
+      <div className="flex items-center gap-2 p-3 border-b bg-muted/30">
+        <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 shrink-0" 
+            disabled={!currentPath} 
+            onClick={handleBack}
+        >
+            <ChevronLeft size={16} />
+        </Button>
+        <div className="font-mono text-xs truncate flex-1" title={currentPath || "root"}>
+            {currentPath ? `/${currentPath}` : "/"}
+        </div>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-1">
+            {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2">
+                        <Skeleton className="h-4 w-4 rounded" />
+                        <Skeleton className="h-4 w-32" />
+                    </div>
+                ))
+            ) : files.length === 0 ? (
+                <div className="text-center text-muted-foreground py-10 text-sm">
+                    This folder is empty.
+                </div>
+            ) : (
+                files.map((file) => (
+                    <button
+                        key={file.sha}
+                        onClick={() => file.type === 'dir' ? handleNavigate(file.path) : onFileSelect(file.path)}
+                        className="flex items-center gap-3 w-full p-2 hover:bg-muted/50 rounded-md text-left text-sm group transition-colors"
+                    >
+                        <span className="shrink-0 text-muted-foreground group-hover:text-foreground">
+                            {file.type === 'dir' ? (
+                                <Folder weight="fill" size={18} className="text-blue-400" />
+                            ) : (
+                                <FileCode size={18} />
+                            )}
+                        </span>
+                        <span className="truncate">{file.name}</span>
+                    </button>
+                ))
+            )}
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}
