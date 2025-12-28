@@ -7,7 +7,8 @@ import {
   Skull, 
   Lock, 
   DotsThreeCircle, 
-  DotsThreeIcon
+  DotsThreeIcon,
+  CircleNotch
 } from "@phosphor-icons/react/dist/ssr"
 import { 
   Card, 
@@ -35,19 +36,10 @@ import {
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { MenuIcon } from "lucide-react"
-
-export interface Repository {
-  name: string
-  description: string
-  language: string
-  stars: string
-  forks: string
-  watchers: string
-  updatedAt: string
-  status: "Running" | "Paused"
-  private: boolean
-  pendingMurders: number
-}
+import { Repository } from "@/lib/types"
+import { updateRepoStatus, deleteRepo } from "@/app/actions/github"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 const itemVariants = {
   hidden: { y: 20, opacity: 0 },
@@ -55,6 +47,50 @@ const itemVariants = {
 }
 
 export function RepoCard({ repo }: { repo: Repository }) {
+  const queryClient = useQueryClient();
+
+  const { mutate: toggleStatus, isPending: isStatusPending } = useMutation({
+    mutationFn: async () => {
+        if (!repo.id) throw new Error("Repo ID missing");
+        const newStatus = repo.status === 'Running' ? 'Paused' : 'Running';
+        const result = await updateRepoStatus(repo.id, newStatus);
+        if (result.error) throw new Error(result.error);
+        return newStatus;
+    },
+    onSuccess: (newStatus) => {
+        toast.success(`Repository ${newStatus === 'Running' ? 'resumed' : 'paused'}.`);
+        queryClient.invalidateQueries({ queryKey: ['savedRepos'] });
+    },
+    onError: (error: Error) => {
+        toast.error(`Failed to update status: ${error.message}`);
+    }
+  });
+
+  const { mutate: deleteRepository, isPending: isDeleting } = useMutation({
+    mutationFn: async () => {
+        if (!repo.id) throw new Error("Repo ID missing");
+        const result = await deleteRepo(repo.id);
+        if (result.error) throw new Error(result.error);
+        return repo.name;
+    },
+    onSuccess: (name) => {
+        toast.success(`${name} has been erased from existence.`);
+        queryClient.invalidateQueries({ queryKey: ['savedRepos'] });
+    },
+    onError: (error: Error) => {
+        toast.error(`Failed to delete repo: ${error.message}`);
+    }
+  });
+
+  const handleCopyId = () => {
+    if (repo.id) {
+        navigator.clipboard.writeText(repo.id.toString());
+        toast.success("Shame ID copied to clipboard.");
+    } else {
+        toast.error("ID missing.");
+    }
+  };
+
   return (
     <motion.div variants={itemVariants}>
       <Card className="flex flex-col border-muted-foreground/20 hover:border-primary/50 transition-colors duration-300">
@@ -75,8 +111,14 @@ export function RepoCard({ repo }: { repo: Repository }) {
           <div className="flex items-center gap-2">
             <Badge 
               variant={repo.status === 'Running' ? 'default' : 'secondary'} 
-              className={repo.status === 'Running' ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20'}
+              className={`cursor-pointer select-none transition-colors ${
+                  repo.status === 'Running' 
+                    ? 'bg-green-500 hover:bg-green-600' 
+                    : 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20'
+              }`}
+              onClick={() => !isStatusPending && toggleStatus()}
             >
+              {isStatusPending ? <CircleNotch className="animate-spin mr-1" size={12} /> : null}
               {repo.status === 'Running' ? 'Running' : 'Paused'}
             </Badge>
             <DropdownMenu>
@@ -89,16 +131,33 @@ export function RepoCard({ repo }: { repo: Repository }) {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Regrettable Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => toggleStatus()} disabled={isStatusPending}>
+                   {repo.status === 'Running' ? 'Pause Analysis' : 'Resume Analysis'}
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={`/dashboard/repos/${repo.name}`} className="flex items-center cursor-pointer font-bold">
                     <Eye size={16} className="mr-2" /> Examine Failures
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>Copy Shame ID</DropdownMenuItem>
-                <DropdownMenuItem>View Crime Scene (GitHub)</DropdownMenuItem>
-                <DropdownMenuItem>Change Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCopyId}>
+                    Copy Shame ID
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <a href={`https://github.com/${repo.name}`} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                        View Crime Scene (GitHub)
+                    </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                    Change Settings <span className="ml-2 text-[10px] text-muted-foreground">(Coming Soon)</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600 font-bold text-xs uppercase">Erase from Existence</DropdownMenuItem>
+                <DropdownMenuItem 
+                    onClick={() => deleteRepository()} 
+                    disabled={isDeleting}
+                    className="text-red-600 font-bold text-xs uppercase focus:text-red-600 focus:bg-red-50"
+                >
+                    {isDeleting ? "Erasing..." : "Erase from Existence"}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

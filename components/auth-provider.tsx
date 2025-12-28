@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         provider: "github",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: 'repo',
         },
       })
       if (error) throw error

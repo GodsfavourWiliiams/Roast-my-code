@@ -148,7 +148,7 @@ export default function LandingPage() {
               </Button>
               <Button
                 variant="outline"
-                className="h-12 px-8 rounded-full border-white/10 text-black hover:text-white hover:bg-white/5 font-medium text-base"
+                className="h-12 px-8 rounded-full border-white/10 text-white hover:bg-white/5 font-medium text-base"
               >
                 View Live Demo
               </Button>
@@ -171,7 +171,7 @@ export default function LandingPage() {
                   <div className="w-3 h-3 rounded-full bg-yellow-500/20" />
                   <div className="w-3 h-3 rounded-full bg-green-500/20" />
                 </div>
-                <div className="ml-4 text-xs font-mono text-slate-500 flex items-center gap-2">
+                <div className="ml-4 text-xs font-mono text-foreground flex items-center gap-2">
                   <GitPullRequest className="w-3 h-3" />
                   feat/user-auth-refactor
                 </div>
@@ -240,7 +240,7 @@ export default function LandingPage() {
                           AI Reviewer
                         </Badge>
                       </div>
-                      <span className="text-xs text-slate-500">Just now</span>
+                      <span className="text-xs text-foreground">Just now</span>
                     </div>
                   </div>
 
@@ -272,14 +272,14 @@ export default function LandingPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-xs text-slate-500 hover:text-white hover:bg-white/5"
+                      className="text-xs text-foreground hover:text-white hover:bg-white/5"
                     >
                       <CheckCircle2 className="w-3 h-3 mr-1.5" /> Accept Fate
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-xs text-slate-500 hover:text-white hover:bg-white/5"
+                      className="text-xs text-foreground hover:text-white hover:bg-white/5"
                     >
                       <XCircle className="w-3 h-3 mr-1.5" /> Cry in Corner
                     </Button>
@@ -293,7 +293,7 @@ export default function LandingPage() {
         {/* Social Proof (Satire) */}
         <section className="py-10 border-y border-white/5 bg-white/2">
           <div className="max-w-7xl mx-auto px-6 text-center">
-            <p className="text-sm font-medium text-slate-500 mb-8 uppercase tracking-widest">
+            <p className="text-sm font-medium text-foreground mb-8 uppercase tracking-widest">
               Terrorizing engineering teams at
             </p>
             <div className="flex flex-wrap justify-center gap-12 md:gap-24 opacity-40 grayscale">
@@ -360,7 +360,7 @@ export default function LandingPage() {
                   <p className="text-slate-400 leading-relaxed">
                     If you actually write clean, well-documented, tested code,
                     RoastBot might offer a rare compliment.
-                    <span className="italic text-slate-500">
+                    <span className="italic text-foreground">
                       {' '}
                       (Note: This feature is currently in beta and rarely
                       triggered).
@@ -424,7 +424,7 @@ export default function LandingPage() {
                 <Flame className="w-5 h-5 text-red-500" fill="currentColor" />
                 <span className="font-bold text-lg">RoastBot</span>
               </div>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-foreground">
                 The AI code reviewer that treats you like a junior dev until you
                 prove otherwise.
               </p>
@@ -433,7 +433,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 gap-12">
               <div className="space-y-4">
                 <h4 className="text-sm font-semibold text-white">Product</h4>
-                <ul className="space-y-2 text-sm text-slate-500">
+                <ul className="space-y-2 text-sm text-foreground">
                   <li>
                     <Link
                       href="#"
@@ -462,7 +462,7 @@ export default function LandingPage() {
               </div>
               <div className="space-y-4">
                 <h4 className="text-sm font-semibold text-white">Legal</h4>
-                <ul className="space-y-2 text-sm text-slate-500">
+                <ul className="space-y-2 text-sm text-foreground">
                   <li>
                     <Link
                       href="#"
@@ -483,7 +483,7 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-          <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-white/5 flex justify-between items-center text-xs text-slate-600">
+          <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-white/5 flex justify-between items-center text-xs text-muted-foreground">
             <p>&copy; 2025 RoastBot Labs. All rights reserved.</p>
             <p>Made with hate.</p>
           </div>
