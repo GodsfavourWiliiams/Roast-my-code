@@ -25,6 +25,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -47,97 +48,109 @@
 }
 
 :root {
-  --radius: 0.75rem; /* 12px rounded edges */
-  
-  /* Brand Color: #5A3CFE */
-  --primary: #5A3CFE;
-  --primary-foreground: #FFFFFF;
-  
-  /* Secondary: Clean White/Gray for contrast */
-  --secondary: #F4F4F5;
-  --secondary-foreground: #4E25FD;
+  /* Radius: Matches the rounded-xl (12px) look of your cards */
+  --radius: 0.75rem;
 
+  /* Brand Color: Red-600 (#DC2626) as seen in your "Connect Repository" button */
+  --primary: #DC2626;
+  --primary-foreground: #FFFFFF;
+
+  /* Background: Pure White for Light Mode contrast */
   --background: #FFFFFF;
-  --foreground: #09090B;
-  
+  --foreground: #0A0A0A;
+
+  /* Cards */
   --card: #FFFFFF;
-  --card-foreground: #09090B;
-  
+  --card-foreground: #0A0A0A;
   --popover: #FFFFFF;
-  --popover-foreground: #09090B;
-  
-  --muted: #F4F4F5;
-  --muted-foreground: #71717A;
-  
-  --accent: #F4F4F5;
-  --accent-foreground: #09090B;
-  
-  --destructive: #EF4444;
-  --destructive-foreground: #FAFAFA;
-  
-  --border: #E4E4E7;
-  --input: #E4E4E7;
-  --ring: #4E25FD;
-  
-  --chart-1: #4E25FD;
-  --chart-2: #2E1065;
-  --chart-3: #EF4444;
-  --chart-4: #3B82F6;
-  --chart-5: #10B981;
-  
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #09090B;
-  --sidebar-primary: #4E25FD;
+  --popover-foreground: #0A0A0A;
+
+  /* Secondary: Slate-100 */
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+
+  /* Muted: Slate-100 */
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B; /* Slate-500 */
+
+  /* Accent: Hover states */
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+
+  /* Destructive: Darker Red */
+  --destructive: #991B1B;
+  --destructive-foreground: #FEF2F2;
+
+  /* Borders: Slate-200 */
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #DC2626;
+
+  /* Charts */
+  --chart-1: #DC2626; /* Red */
+  --chart-2: #FB923C; /* Orange */
+  --chart-3: #FBBF24; /* Yellow */
+  --chart-4: #0F172A; /* Slate */
+  --chart-5: #64748B; /* Slate Light */
+
+  /* Sidebar */
+  --sidebar: #F8FAFC;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #DC2626;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F4F4F5;
-  --sidebar-accent-foreground: #09090B;
-  --sidebar-border: #E4E4E7;
-  --sidebar-ring: #4E25FD;
+  --sidebar-accent: #E2E8F0;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #DC2626;
 }
 
 .dark {
-  --background: #09090B;
-  --foreground: #FAFAFA;
-  
-  --card: #09090B;
-  --card-foreground: #FAFAFA;
-  
-  --popover: #09090B;
-  --popover-foreground: #FAFAFA;
-  
-  --primary: #5A3CFE;
+  /* Background: #0A0A0A (Exact match to landing page) */
+  --background: #0A0A0A;
+  /* Foreground: Slate-200 (#E2E8F0) (Exact match to landing page text) */
+  --foreground: #E2E8F0;
+
+  /* Cards: #0F0F10 (Matches your Card bg) */
+  --card: #0F0F10;
+  --card-foreground: #E2E8F0;
+
+  --popover: #0F0F10;
+  --popover-foreground: #E2E8F0;
+
+  /* Primary: Red-600 (#DC2626) */
+  --primary: #DC2626;
   --primary-foreground: #FFFFFF;
-  
-  --secondary: #27272A;
-  --secondary-foreground: #FAFAFA;
-  
-  --muted: #27272A;
-  --muted-foreground: #A1A1AA;
-  
+
+  /* Secondary: White/10 (rgba(255,255,255,0.1)) for subtle buttons */
+  --secondary: #27272A; /* Fallback to Zinc-800 for solid compatibility */
+  --secondary-foreground: #F8FAFC;
+
+  /* Muted: White/5 equivalent or dark slate */
+  --muted: #1e1e20;
+  --muted-foreground: #94A3B8; /* Slate-400 (Matches landing page descriptions) */
+
+  /* Accent: For hover states (White/5) */
   --accent: #27272A;
-  --accent-foreground: #FAFAFA;
-  
+  --accent-foreground: #FFFFFF;
+
+  /* Destructive: Red-500 (#EF4444) for text alerts */
   --destructive: #7F1D1D;
-  --destructive-foreground: #FAFAFA;
-  
+  --destructive-foreground: #FEF2F2;
+
+  /* Borders: White/10 equivalent (#27272A / Zinc-800 is closest solid match) */
   --border: #27272A;
   --input: #27272A;
-  --ring: #4E25FD;
-  
-  --chart-1: #4E25FD;
-  --chart-2: #2E1065;
-  --chart-3: #EF4444;
-  --chart-4: #3B82F6;
-  --chart-5: #10B981;
-  
-  --sidebar: #09090B;
-  --sidebar-foreground: #FAFAFA;
-  --sidebar-primary: #4E25FD;
+  --ring: #DC2626;
+
+  /* Sidebar */
+  --sidebar: #0A0A0A;
+  --sidebar-foreground: #E2E8F0;
+  --sidebar-primary: #DC2626;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #27272A;
-  --sidebar-accent-foreground: #FAFAFA;
+  --sidebar-accent-foreground: #E2E8F0;
   --sidebar-border: #27272A;
-  --sidebar-ring: #4E25FD;
+  --sidebar-ring: #DC2626;
 }
 
 @layer base {
@@ -145,7 +158,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }
 

@@ -1,11 +1,13 @@
-import { Button } from "@/components/ui/button"
+'use client';
+
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -13,18 +15,55 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { 
-  PlusIcon, 
-  GithubLogo, 
-  TrendUp, 
-  Warning 
-} from "@phosphor-icons/react/dist/ssr"
-import { Flame } from "lucide-react"
+} from '@/components/ui/table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  PlusIcon,
+  GithubLogo,
+  TrendUp,
+  Warning,
+  Ghost,
+  WarningOctagon,
+} from '@phosphor-icons/react/dist/ssr';
+import { Flame } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [data, setData] = useState<{ recentRoasts: any[]; linkedRepos: any[] } | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Simulate empty state
+      setData({ recentRoasts: [], linkedRepos: [] });
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (error) {
+    return (
+      <div className="flex h-[80vh] w-full flex-col items-center justify-center text-center p-4">
+        <div className="mb-6 rounded-full bg-destructive/10 p-6">
+          <WarningOctagon size={64} className="text-destructive animate-pulse" />
+        </div>
+        <h2 className="text-2xl font-black uppercase tracking-widest text-destructive mb-2">
+          Command Center Offline
+        </h2>
+        <p className="max-w-md text-muted-foreground mb-6">
+          &gt; Error: Connection refused by ego-server. <br/>
+          &gt; Status: Terminal failure.
+        </p>
+        <Button onClick={() => window.location.reload()} variant="outline">
+          Reconnect
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header Section */}
@@ -38,7 +77,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button className="h-10 font-semibold">
+          <Button className="h-10 font-semibold uppercase" disabled={isLoading}>
             <PlusIcon strokeWidth={4} /> Link More Trash
           </Button>
         </div>
@@ -46,69 +85,36 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Egos Bruised</CardTitle>
-            <Flame className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">142</div>
-            <p className="text-xs text-muted-foreground">
-              +20.1% higher than last week (yikes)
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Tears (Litres)
-            </CardTitle>
-            <TrendUp size={16} weight="bold" className="text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">4.2L</div>
-            <p className="text-xs text-muted-foreground">
-              Volume increasing exponentially
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Objective Garbage
-            </CardTitle>
-            <Warning size={16} weight="bold" className="text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">
-              Lines that make me want to retire
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Hostages (Repos)
-            </CardTitle>
-            <GithubLogo
-              size={16}
-              weight="bold"
-              className="text-muted-foreground"
-            />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">7</div>
-            <p className="text-xs text-muted-foreground">
-              3 updated (poorly) recently
-            </p>
-          </CardContent>
-        </Card>
+        {[
+          { title: 'Egos Bruised', icon: Flame, desc: 'Coward.' },
+          { title: 'Total Tears (Litres)', icon: TrendUp, desc: 'Dry eyes? Impossible.' },
+          { title: 'Objective Garbage', icon: Warning, desc: 'Safe... for now.' },
+          { title: 'Hostages (Repos)', icon: GithubLogo, desc: 'Link a repo. I dare you.' },
+        ].map((stat, i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              <stat.icon size={16} className="text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-12" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">0</div>
+                  <p className="text-xs text-muted-foreground">{stat.desc}</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Main Content Area: Recent Activity & Repo List */}
+      {/* Main Content Area */}
       <div className="grid gap-6 md:grid-cols-7">
-        {/* Recent Roasts Table */}
         <Card className="col-span-4 lg:col-span-5 border-border">
           <CardHeader>
             <CardTitle>Recent Slaughter</CardTitle>
@@ -116,69 +122,30 @@ export default function DashboardPage() {
               A list of pull requests that didn&apos;t stand a chance.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px] px-5">Project</TableHead>
-                    <TableHead className="px-5">PR Attempt</TableHead>
-                    <TableHead className="px-5">Outcome</TableHead>
-                    <TableHead className="px-5">Cruelty</TableHead>
-                    <TableHead className="text-right px-5">
-                      Moment of Failure
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentRoasts.map((roast) => (
-                    <TableRow key={roast.id}>
-                      <TableCell className="font-medium whitespace-nowrap p-5">
-                        {roast.repo}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap p-5">
-                        {roast.prTitle}
-                      </TableCell>
-                      <TableCell className="p-5">
-                        <Badge
-                          variant={
-                            roast.status === 'Roasted'
-                              ? 'destructive'
-                              : 'outline'
-                          }
-                          className={
-                            roast.status === 'Approved'
-                              ? 'bg-green-500 hover:bg-green-600 border-transparent text-white'
-                              : ''
-                          }
-                        >
-                          {roast.status === 'Roasted'
-                            ? 'DESTROYED'
-                            : roast.status === 'Approved'
-                            ? 'SURE, WHATEVER'
-                            : 'JUDGING...'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="p-5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">{roast.score}/10</span>
-                          {roast.score > 8 && (
-                            <Flame className="h-3 w-3 text-orange-500" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right p-5 text-muted-foreground whitespace-nowrap">
-                        {roast.date}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          <CardContent className="min-h-[300px] flex flex-col items-center justify-center text-center p-8 border-t border-border/50">
+            {isLoading ? (
+              <div className="w-full space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : data?.recentRoasts.length === 0 ? (
+              <>
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <Ghost size={32} className="text-muted-foreground" />
+                </div>
+                <h3 className="font-bold text-lg">No victims found</h3>
+                <p className="text-muted-foreground text-sm max-w-[250px] mt-2 mb-6">
+                  It seems you haven't submitted any PRs for me to destroy yet.
+                </p>
+                <Button variant="outline" className="uppercase font-bold">
+                  Submit Code
+                </Button>
+              </>
+            ) : null}
           </CardContent>
         </Card>
 
-        {/* Recent Repos / Quick Stats */}
         <Card className="col-span-3 lg:col-span-2 border-border">
           <CardHeader>
             <CardTitle>Victim List</CardTitle>
@@ -186,109 +153,36 @@ export default function DashboardPage() {
               Codebases I currently have to look at.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              {linkedRepos.map((repo) => (
-                <div key={repo.name} className="flex items-center">
-                  <Avatar className="h-9 w-9 rounded-none border border-border">
-                    <AvatarImage src={repo.icon} alt="Avatar" />
-                    <AvatarFallback>GH</AvatarFallback>
-                  </Avatar>
-                  <div className="ml-4 space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {repo.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{repo.desc}</p>
+          <CardContent className="min-h-[300px] flex flex-col items-center justify-center text-center p-8 border-t border-border/50">
+            {isLoading ? (
+               <div className="w-full space-y-6">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
                   </div>
-                  <div className="ml-auto font-medium text-xs text-muted-foreground">
-                    {repo.lastActive}
-                  </div>
+                ))}
+              </div>
+            ) : data?.linkedRepos.length === 0 ? (
+              <>
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <GithubLogo size={32} className="text-muted-foreground" />
                 </div>
-              ))}
-            </div>
-            <div className="mt-6">
-              <Button variant="outline" className="w-full">
-                View All Shame
-              </Button>
-            </div>
+                <h3 className="font-bold text-lg">No Repos Connected</h3>
+                <p className="text-muted-foreground text-sm max-w-[200px] mt-2 mb-6">
+                  Connect a repository so I can complain.
+                </p>
+                <Button size="sm" className="uppercase font-bold">
+                  Connect Repo
+                </Button>
+              </>
+            ) : null}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-// Mock Data
-const recentRoasts = [
-    {
-        id: "1",
-        repo: "frontend-v2",
-        prTitle: "fix: button alignment",
-        status: "Roasted",
-        score: 9.5,
-        date: "2 mins ago"
-    },
-    {
-        id: "2",
-        repo: "backend-api",
-        prTitle: "feat: user auth flow",
-        status: "Approved",
-        score: 2.1,
-        date: "1 hour ago"
-    },
-    {
-        id: "3",
-        repo: "legacy-code",
-        prTitle: "refactor: god class",
-        status: "Roasted",
-        score: 10,
-        date: "4 hours ago"
-    },
-    {
-        id: "4",
-        repo: "mobile-app",
-        prTitle: "chore: update deps",
-        status: "Pending",
-        score: 0,
-        date: "Yesterday"
-    },
-    {
-        id: "5",
-        repo: "frontend-v2",
-        prTitle: "style: dark mode",
-        status: "Roasted",
-        score: 8.8,
-        date: "Yesterday"
-    },
-]
-
-const linkedRepos = [
-    {
-        name: "frontend-v2",
-        desc: "React, Next.js",
-        initials: "FV",
-        icon: "/github-icon.png", // placeholder
-        lastActive: "2m"
-    },
-    {
-        name: "backend-api",
-        desc: "Node.js, Express",
-        initials: "BA",
-        icon: "/github-icon.png",
-        lastActive: "1h"
-    },
-    {
-        name: "legacy-code",
-        desc: "Java 8, Spagetti",
-        initials: "LC",
-        icon: "/github-icon.png",
-        lastActive: "4h"
-    },
-    {
-        name: "infra-k8s",
-        desc: "Terraform",
-        initials: "IK",
-        icon: "/github-icon.png",
-        lastActive: "2d"
-    },
-]

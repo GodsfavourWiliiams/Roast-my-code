@@ -1,11 +1,15 @@
-"use client"
+'use client';
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   PlusIcon,
   FunnelIcon,
   MagnifyingGlassIcon,
+  GithubLogo,
+  Trash,
+  WarningOctagon,
 } from '@phosphor-icons/react/dist/ssr';
 import {
   DropdownMenu,
@@ -31,12 +35,26 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RepoCard, Repository } from '@/components/repo-card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 export default function ReposPage() {
   const [filter, setFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
+
+  // States
+  const [isLoading, setIsLoading] = useState(true);
+  const [error] = useState(false);
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setRepositories([]); // Empty state by default
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filteredRepos = repositories.filter((repo) => {
     if (filter === 'all') return true;
@@ -55,6 +73,29 @@ export default function ReposPage() {
     },
   };
 
+  if (error) {
+    return (
+      <div className="flex h-[80vh] w-full flex-col items-center justify-center text-center p-4">
+        <div className="mb-6 rounded-full bg-destructive/10 p-6">
+          <WarningOctagon
+            size={64}
+            className="text-destructive animate-pulse"
+          />
+        </div>
+        <h2 className="text-2xl font-black uppercase tracking-widest text-destructive mb-2">
+          Graveyard Offline
+        </h2>
+        <p className="max-w-md text-muted-foreground mb-6">
+          &gt; Error: Fail to retrieve victim list. <br />
+          &gt; Status: 500 - Internal Rage.
+        </p>
+        <Button onClick={() => window.location.reload()} variant="outline">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -70,7 +111,7 @@ export default function ReposPage() {
           <Tooltip>
             <TooltipTrigger asChild>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="uppercase font-bold" disabled={isLoading}>
                   <PlusIcon size={16} weight="bold" className="mr-2" /> Import
                   More Junk
                 </Button>
@@ -101,7 +142,11 @@ export default function ReposPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" onClick={() => setIsOpen(false)}>
+              <Button
+                type="submit"
+                onClick={() => setIsOpen(false)}
+                className="uppercase font-bold"
+              >
                 Analyze & Destroy
               </Button>
             </DialogFooter>
@@ -120,6 +165,7 @@ export default function ReposPage() {
             type="search"
             placeholder="Search for specific trash..."
             className="pl-8 max-w-md w-full h-10"
+            disabled={isLoading}
           />
         </div>
         <DropdownMenu>
@@ -127,14 +173,10 @@ export default function ReposPage() {
             <Button
               variant="outline"
               className="gap-2 w-full md:w-auto rounded h-10 justify-center"
+              disabled={isLoading}
             >
               <FunnelIcon size={16} weight="bold" />
-              Filter by Odor:{' '}
-              {filter === 'all'
-                ? 'All'
-                : filter === 'running'
-                ? 'Active Fires'
-                : 'Cold Ashes'}
+              Filter by Odor
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -162,91 +204,54 @@ export default function ReposPage() {
         </DropdownMenu>
       </div>
 
-      <motion.div
-        className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
-        variants={container}
-        initial="hidden"
-        animate="show"
-      >
-        {filteredRepos.map((repo) => (
-          <RepoCard key={repo.name} repo={repo as Repository} />
-        ))}
-      </motion.div>
+      {isLoading ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i} className="border-2">
+              <CardHeader className="space-y-2">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-full" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Skeleton className="h-4 w-12" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : filteredRepos.length > 0 ? (
+        <motion.div
+          className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          variants={container}
+          initial="hidden"
+          animate="show"
+        >
+          {filteredRepos.map((repo) => (
+            <RepoCard key={repo.name} repo={repo as Repository} />
+          ))}
+        </motion.div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
+          <div className="rounded-full bg-muted p-6 mb-6">
+            <Trash size={48} className="text-muted-foreground opacity-50" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">No Repositories Found</h2>
+          <p className="text-muted-foreground max-w-md text-center mb-8">
+            Your dashboard is surprisingly clean. Too clean. Add a repository so
+            I can find something to complain about.
+          </p>
+          <Button
+            onClick={() => setIsOpen(true)}
+            className="uppercase font-bold tracking-wide"
+          >
+            <PlusIcon weight="bold" className="mr-2" />
+            Add First Victim
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
-
-const repositories = [
-  {
-    name: "frontend-v2",
-    description: "The next generation frontend for our main application built with Next.js 15 and React Server Components.",
-    language: "TypeScript",
-    stars: "1.2k",
-    forks: "142",
-    watchers: "34",
-    updatedAt: "2 hours ago",
-    status: "Running",
-    private: false,
-    pendingMurders: 3
-  },
-  {
-    name: "backend-api",
-    description: "Scalable Node.js API gateway handling authentication, user management, and payments.",
-    language: "JavaScript",
-    stars: "845",
-    forks: "92",
-    watchers: "12",
-    updatedAt: "1 day ago",
-    status: "Running",
-    private: true,
-    pendingMurders: 12
-  },
-  {
-    name: "legacy-monolith",
-    description: "The old java codebase we are trying to strangle. Don't look at it directly.",
-    language: "Java",
-    stars: "45",
-    forks: "12",
-    watchers: "5",
-    updatedAt: "1 month ago",
-    status: "Paused",
-    private: true,
-    pendingMurders: 0
-  },
-  {
-    name: "mobile-ios",
-    description: "Native iOS application written in Swift. Needs a major refactor.",
-    language: "Swift",
-    stars: "230",
-    forks: "45",
-    watchers: "8",
-    updatedAt: "3 days ago",
-    status: "Running",
-    private: true,
-    pendingMurders: 5
-  },
-  {
-    name: "infrastructure-iac",
-    description: "Terraform modules and Kubernetes manifests for our cloud infrastructure.",
-    language: "HCL",
-    stars: "120",
-    forks: "23",
-    watchers: "10",
-    updatedAt: "5 hours ago",
-    status: "Running",
-    private: true,
-    pendingMurders: 1
-  },
-   {
-    name: "design-system",
-    description: "Shared component library and design tokens for all frontend applications.",
-    language: "TypeScript",
-    stars: "560",
-    forks: "89",
-    watchers: "45",
-    updatedAt: "1 week ago",
-    status: "Paused",
-    private: false,
-    pendingMurders: 8
-  }
-]
