@@ -18,6 +18,7 @@ import {
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { GithubLogoIcon } from '@phosphor-icons/react/dist/ssr';
+import { useAuth } from '@/components/auth-provider';
 
 // Animation variants for smooth, professional feel
 const fadeUp = {
@@ -38,6 +39,8 @@ const staggerContainer = {
 };
 
 export default function LandingPage() {
+  const { user, isLoading } = useAuth();
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-slate-200 selection:bg-red-500/20 selection:text-red-200 font-sans">
       {/* Background Gradients */}
@@ -79,12 +82,23 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-slate-400 hover:text-white hidden sm:block"
-            >
-              Log in
-            </Link>
+            {!isLoading && (
+              user ? (
+                <Link
+                  href="/dashboard"
+                  className="text-sm font-medium text-slate-400 hover:text-white hidden sm:block"
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-slate-400 hover:text-white hidden sm:block"
+                >
+                  Log in
+                </Link>
+              )
+            )}
             <Link href="/install">
               <Button className="bg-white text-black hover:bg-slate-200 font-medium h-9 rounded-full px-5 text-sm">
                 Install on GitHub
