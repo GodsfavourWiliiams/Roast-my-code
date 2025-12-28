@@ -10,19 +10,21 @@ export interface GithubRepo {
   watchers_count: number;
   private: boolean;
   updated_at: string;
+  default_branch: string;
 }
 
 export interface Repository {
-  id?: number; 
+  id?: number;
   name: string;
   full_name: string;
   description: string;
   language: string;
+  framework?: string | null;
   stars: string;
   forks: string;
   watchers: string;
-  updatedAt: string;
-  status: "Running" | "Paused";
+  updated_at: string;
+  status: 'Running' | 'Paused';
   private: boolean;
-  pendingMurders: number;
+  pending_murders: number;
 }

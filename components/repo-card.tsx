@@ -1,11 +1,8 @@
 "use client"
 
 import {
-  GithubLogo,
-  GitBranch,
   Skull,
   Lock,
-  DotsThreeCircle,
 } from '@phosphor-icons/react/dist/ssr';
 import {
   Card,
@@ -30,7 +27,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Repository } from '@/lib/types';
 import { updateRepoStatus, deleteRepo } from '@/app/actions/github';
@@ -39,6 +35,7 @@ import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useState } from 'react';
 import { EllipsisVertical } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const itemVariants = {
   hidden: { y: 20, opacity: 0 },
@@ -47,7 +44,8 @@ const itemVariants = {
 
 export function RepoCard({ repo }: { repo: Repository }) {
   const queryClient = useQueryClient();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const router = useRouter();
 
   const { mutate: toggleStatus, isPending: isStatusPending } = useMutation({
     mutationFn: async () => {
@@ -94,41 +92,36 @@ export function RepoCard({ repo }: { repo: Repository }) {
     }
   };
 
-  const getFrameworkIcon = (language: string) => {
-    const lang = language?.toLowerCase() || '';
-    if (
-      lang.includes('typescript') ||
-      lang.includes('javascript') ||
-      lang.includes('react') ||
-      lang.includes('next')
-    ) {
-      return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg'; // Fallback/General JS/TS/React
+  const getFrameworkIcon = (repo: Repository) => {
+    if (repo.framework) {
+      switch (repo.framework) {
+        case 'Next.js': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg';
+        case 'React': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg';
+        case 'Vue': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg';
+        case 'Nuxt': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nuxtjs/nuxt-original.svg';
+        case 'Angular': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/angularjs/angularjs-original.svg';
+        case 'Svelte': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/svelte/svelte-original.svg';
+        case 'NestJS': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nestjs/nestjs-original.svg';
+        case 'Express': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/express/express-original.svg';
+        case 'Python': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg';
+        case 'Java': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg';
+        case 'Go': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg';
+        case 'Rust': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/rust/rust-plain.svg';
+        case 'TypeScript': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg';
+        case 'JavaScript': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg';
+      }
     }
-    if (lang.includes('python'))
-      return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg';
-    if (lang.includes('java'))
-      return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg';
-    if (lang.includes('go'))
-      return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg';
-    if (lang.includes('rust'))
-      return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/rust/rust-plain.svg';
-    if (lang.includes('vue'))
-      return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg';
-    if (lang.includes('angular'))
-      return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/angularjs/angularjs-original.svg';
-    return '/github-icon.png'; // Default
+    return '/github-icon.png';
   };
 
-  // Refine specific icon logic if needed
-  let avatarSrc = getFrameworkIcon(repo.language);
-  if (repo.description?.toLowerCase().includes('next.js')) {
-    avatarSrc =
-      'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg';
-  }
+  const avatarSrc = getFrameworkIcon(repo);
 
   return (
-    <motion.div variants={itemVariants}>
-      <Card className="flex flex-col border-muted-foreground/20 hover:border-primary/50 transition-colors duration-300">
+    <motion.div variants={itemVariants} className="h-full">
+      <Card 
+        className="flex h-full flex-col border-muted-foreground/20 hover:border-primary/50 transition-colors duration-300 cursor-pointer"
+        onClick={() => router.push(`/dashboard/repos/${repo.name}`)}
+      >
         <CardHeader className="grid grid-cols-[1fr_auto] items-start gap-4 space-y-0 pb-2">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-base font-bold">
@@ -140,18 +133,13 @@ export function RepoCard({ repo }: { repo: Repository }) {
                 <AvatarFallback>GH</AvatarFallback>
               </Avatar>
               <span className="truncate">{repo.name}</span>
-              {repo.private && (
-                <Lock
-                  size={12}
-                  weight="bold"
-                  className="text-muted-foreground"
-                />
-              )}
+              {repo.private && <Lock size={12} weight="bold" className="text-muted-foreground" />}
             </CardTitle>
             <CardDescription className="line-clamp-2">
               {repo.description}
             </CardDescription>
           </div>
+
           <div className="flex items-center gap-2">
             <Badge
               variant={repo.status === 'Running' ? 'default' : 'secondary'}
@@ -160,56 +148,57 @@ export function RepoCard({ repo }: { repo: Repository }) {
                   ? 'bg-green-500 hover:bg-green-600'
                   : 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20'
               }`}
-              onClick={() => !isStatusPending && toggleStatus()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isStatusPending) toggleStatus();
+              }}
             >
               {repo.status === 'Running' ? 'Running' : 'Paused'}
             </Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <EllipsisVertical />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Regrettable Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => toggleStatus()}
-                  disabled={isStatusPending}
-                >
-                  {repo.status === 'Running'
-                    ? 'Pause Analysis'
-                    : 'Resume Analysis'}
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={`/dashboard/repos/${repo.name}`}
-                    className="flex items-center cursor-pointer font-bold"
-                  >
-                    Examine Failures
-                  </Link>
-                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={handleCopyId}>
-                                    Copy Shame ID
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <a href={`https://github.com/${repo.full_name}`} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
-                                        View Crime Scene (GitHub)
-                                    </a>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setDeleteDialogOpen(true);
-                  }}
-                  className="text-red-600 font-bold text-xs uppercase focus:text-red-600 focus:bg-red-50"
-                >
-                  Erase from Existence
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+            {/* Dropdown - Fixed Click Propagation */}
+            <div onClick={(e) => e.stopPropagation()}>
+                <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    >
+                    <span className="sr-only">Open menu</span>
+                    <EllipsisVertical />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Regrettable Actions</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        onSelect={() => !isStatusPending && toggleStatus()}
+                        disabled={isStatusPending}
+                    >
+                        {repo.status === 'Running' ? 'Pause Analysis' : 'Resume Analysis'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                        onSelect={() => router.push(`/dashboard/repos/${repo.name}`)}
+                        className="font-bold"
+                    >
+                        Examine Failures
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleCopyId}>
+                        Copy Shame ID
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => window.open(`https://github.com/${repo.full_name}`, '_blank')}>
+                        View Crime Scene (GitHub)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        onSelect={() => setDeleteDialogOpen(true)}
+                        className="text-red-600 font-bold text-xs uppercase focus:text-red-600 focus:bg-red-50"
+                    >
+                        Erase from Existence
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
 
             <ConfirmDialog
               open={deleteDialogOpen}
@@ -222,6 +211,7 @@ export function RepoCard({ repo }: { repo: Repository }) {
             />
           </div>
         </CardHeader>
+
         <CardContent className="space-y-4 pt-0">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center gap-4">
@@ -229,26 +219,19 @@ export function RepoCard({ repo }: { repo: Repository }) {
                 <div className="mr-1 h-3 w-3 rounded-full bg-sky-500" />
                 {repo.language}
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center">
-                  <GithubLogo size={16} weight="bold" className="mr-1" />
-                  {repo.forks}
-                </div>
-                <div className="flex items-center">
-                  <GitBranch size={16} weight="bold" className="mr-1" />
-                  {repo.watchers}
-                </div>
-              </div>
             </div>
-            <div className="italic text-xs">Ruined {repo.updatedAt}</div>
+            <div className="italic text-xs">Ruined {repo.updated_at}</div>
           </div>
 
-          <div className="flex items-center bg-muted/50 p-2 rounded-md">
+          <div 
+            className="flex items-center bg-muted/50 p-2 rounded-md"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 text-destructive font-bold text-sm cursor-help hover:underline w-full justify-center">
                   <Skull size={18} weight="fill" />
-                  <span>{repo.pendingMurders} Pending Murders</span>
+                  <span>{repo.pending_murders} Pending Murders</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>

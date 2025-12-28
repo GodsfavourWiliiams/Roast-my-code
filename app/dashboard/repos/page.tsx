@@ -13,6 +13,7 @@ import {
   Lock,
   Globe,
   GitBranch,
+  CircleNotchIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import {
   DropdownMenu,
@@ -67,11 +68,11 @@ function useDebounceValue<T>(value: T, delay: number): T {
 export default function ReposPage() {
   const [filter, setFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
-  
+
   // Search states
   const [modalSearchQuery, setModalSearchQuery] = useState('');
   const debouncedModalSearch = useDebounceValue(modalSearchQuery, 500);
-  
+
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
   const debouncedDashboardSearch = useDebounceValue(dashboardSearchQuery, 500);
 
@@ -79,16 +80,16 @@ export default function ReposPage() {
   const queryClient = useQueryClient();
 
   // Query for saved repositories (Server-side search & filter)
-  const { 
-    data: savedReposData, 
-    isLoading: isLoadingSaved, 
-    isError: isErrorSaved 
+  const {
+    data: savedReposData,
+    isLoading: isLoadingSaved,
+    isError: isErrorSaved,
   } = useQuery({
     queryKey: ['savedRepos', debouncedDashboardSearch, filter],
     queryFn: async () => {
-      const { repos, error } = await getSavedRepos({ 
-        search: debouncedDashboardSearch, 
-        filter 
+      const { repos, error } = await getSavedRepos({
+        search: debouncedDashboardSearch,
+        filter,
       });
       if (error) throw new Error(error);
       return repos;
@@ -104,15 +105,15 @@ export default function ReposPage() {
   } = useQuery({
     queryKey: ['githubRepos', debouncedModalSearch],
     queryFn: async () => {
-      const { repos, error } = await fetchGithubRepos({ 
-        search: debouncedModalSearch 
+      const { repos, error } = await fetchGithubRepos({
+        search: debouncedModalSearch,
       });
       if (error) throw new Error(error);
       return repos;
     },
     enabled: isOpen,
   });
-
+  console.log(githubRepos);
   // Mutation for saving a repository
   const { mutate: importRepo, isPending: isImporting } = useMutation({
     mutationFn: async (repo: GithubRepo) => {
@@ -133,20 +134,22 @@ export default function ReposPage() {
     },
   });
 
-  const repositories: Repository[] = savedReposData?.map((r: SavedRepo) => ({
-    id: r.id,
-    name: r.name,
-    full_name: r.full_name,
-    description: r.description || 'No description provided (lazy).',
-    language: r.language || 'Unknown',
-    stars: '0', 
-    forks: '0',
-    watchers: '0',
-    updatedAt: new Date(r.updated_at).toLocaleDateString(),
-    status: r.status,
-    private: r.private,
-    pendingMurders: 0 
-  })) || [];
+  const repositories: Repository[] =
+    savedReposData?.map((r: SavedRepo) => ({
+      id: r.id,
+      name: r.name,
+      full_name: r.full_name,
+      description: r.description || 'No description provided (lazy).',
+      language: r.language || 'Unknown',
+      framework: r.framework,
+      stars: '0',
+      forks: '0',
+      watchers: '0',
+      updated_at: new Date(r.updated_at).toLocaleDateString(),
+      status: r.status,
+      private: r.private,
+      pending_murders: r.open_prs_count || 0,
+    })) || [];
 
   const container = {
     hidden: { opacity: 0 },
@@ -192,14 +195,20 @@ export default function ReposPage() {
           </p>
         </div>
 
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open) setModalSearchQuery(''); // Reset search on close
-        }}>
+        <Dialog
+          open={isOpen}
+          onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) setModalSearchQuery(''); // Reset search on close
+          }}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <DialogTrigger asChild>
-                <Button className="uppercase font-bold" disabled={isLoadingSaved}>
+                <Button
+                  className="uppercase font-bold"
+                  disabled={isLoadingSaved}
+                >
                   <PlusIcon size={16} weight="bold" className="mr-2" /> Import
                   More Junk
                 </Button>
@@ -216,7 +225,7 @@ export default function ReposPage() {
                 Select a repository to import.
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="px-6 py-2 shrink-0">
               <div className="relative">
                 <MagnifyingGlassIcon
@@ -234,71 +243,103 @@ export default function ReposPage() {
             </div>
 
             <div className="flex-1 min-h-0">
-                <ScrollArea className="h-full">
-                    <div className="p-6 pt-2 space-y-1">
-                        {isLoadingGithub ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="flex items-center justify-between p-4 rounded-md border border-transparent">
-                            <div className="flex items-center gap-3">
-                                <Skeleton className="h-8 w-8 rounded-full" />
-                                <div className="space-y-1">
-                                <Skeleton className="h-4 w-32" />
-                                <Skeleton className="h-3 w-48" />
-                                </div>
-                            </div>
-                            <Skeleton className="h-8 w-20" />
-                            </div>
-                        ))
-                        ) : isErrorGithub ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-center">
-                            <p className="text-destructive mb-2 font-bold">Failed to load repositories.</p>
-                            <p className="text-xs text-muted-foreground">{githubError?.message}</p>
+              <ScrollArea className="h-full">
+                <div className="p-6 pt-2 space-y-1">
+                  {isLoadingGithub ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-4 rounded-md border border-transparent"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-8 w-8 rounded-full" />
+                          <div className="space-y-1">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-48" />
+                          </div>
                         </div>
-                        ) : githubRepos?.length === 0 ? (
-                        <div className="text-center py-12 text-muted-foreground">
-                            <p>No repositories found matching &quot;{debouncedModalSearch}&quot;.</p>
-                        </div>
-                        ) : (
-                        <>
-                            {githubRepos?.map((repo) => (
-                                <div key={repo.id} className="group flex items-center justify-between p-3 rounded-md border border-transparent hover:border-border hover:bg-muted/30 transition-all">
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div className="h-9 w-9 shrink-0 rounded-md bg-muted flex items-center justify-center border border-border">
-                                       {repo.private ? <Lock size={18} weight="bold" /> : <Globe size={18} />}
-                                    </div>
-                                    <div className="flex flex-col min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-bold text-sm truncate">{repo.name}</span>
-                                        {repo.private && (
-                                          <Lock size={12} weight="fill" className="text-muted-foreground shrink-0" />
-                                        )}
-                                      </div>
-                                      <div className="text-[11px] text-muted-foreground truncate">
-                                        {repo.updated_at && (
-                                            <span>Last updated {new Date(repo.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <Button 
-                                    size="sm" 
-                                    onClick={() => importRepo(repo)}
-                                    disabled={isImporting}
-                                    variant="secondary"
-                                    className="h-8 text-xs font-bold uppercase tracking-wider"
-                                  >
-                                    {importingId === repo.id ? (
-                                      <CircleNotch className="animate-spin" />
-                                    ) : (
-                                      "Import"
-                                    )}
-                                  </Button>
-                                </div>
-                            ))}
-                        </>
-                        )}
+                        <Skeleton className="h-8 w-20" />
+                      </div>
+                    ))
+                  ) : isErrorGithub ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <p className="text-destructive mb-2 font-bold">
+                        Failed to load repositories.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {githubError?.message}
+                      </p>
                     </div>
-                </ScrollArea>
+                  ) : githubRepos?.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p>
+                        No repositories found matching &quot;
+                        {debouncedModalSearch}&quot;.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {githubRepos?.map((repo) => (
+                        <div
+                          key={repo.id}
+                          className="group flex items-center justify-between p-3 rounded-md border border-transparent hover:border-border hover:bg-muted/30 transition-all"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-9 w-9 shrink-0 rounded-md bg-muted flex items-center justify-center border border-border">
+                              {repo.private ? (
+                                <Lock size={18} weight="bold" />
+                              ) : (
+                                <Globe size={18} />
+                              )}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm truncate">
+                                  {repo.name}
+                                </span>
+                                {repo.private && (
+                                  <Lock
+                                    size={12}
+                                    weight="fill"
+                                    className="text-muted-foreground shrink-0"
+                                  />
+                                )}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground truncate">
+                                {repo.updated_at && (
+                                  <span>
+                                    Last updated{' '}
+                                    {new Date(
+                                      repo.updated_at
+                                    ).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => importRepo(repo)}
+                            disabled={isImporting}
+                            variant="secondary"
+                            className="h-8 text-xs font-bold uppercase tracking-wider"
+                          >
+                            {importingId === repo.id ? (
+                              <CircleNotchIcon className="animate-spin" />
+                            ) : (
+                              'Import'
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </DialogContent>
         </Dialog>

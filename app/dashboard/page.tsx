@@ -23,13 +23,14 @@ import { fetchDashboardStats, fetchRecentRoasts } from '@/app/actions/dashboard'
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   // Query for Saved Repos (Victim List)
   const {
-    data: linkedRepos = [],
-    isLoading: isLoadingRepos,
-    isError: isErrorRepos,
+    data: linked_repos = [],
+    isLoading: is_loading_repos,
+    isError: is_error_repos,
   } = useQuery({
     queryKey: ['savedRepos'],
     queryFn: async () => {
@@ -42,8 +43,8 @@ export default function DashboardPage() {
   // Query for Stats
   const {
     data: stats,
-    isLoading: isLoadingStats,
-    isError: isErrorStats,
+    isLoading: is_loading_stats,
+    isError: is_error_stats,
   } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: async () => {
@@ -55,9 +56,9 @@ export default function DashboardPage() {
 
   // Query for Recent Roasts
   const {
-    data: recentRoasts = [],
-    isLoading: isLoadingRoasts,
-    isError: isErrorRoasts,
+    data: recent_roasts = [],
+    isLoading: is_loading_roasts,
+    isError: is_error_roasts,
   } = useQuery({
     queryKey: ['recentRoasts'],
     queryFn: async () => {
@@ -83,7 +84,7 @@ export default function DashboardPage() {
           <Link href="/dashboard/repos">
             <Button
               className="h-10 font-semibold uppercase"
-              disabled={isLoadingRepos}
+              disabled={is_loading_repos}
             >
               <PlusIcon strokeWidth={4} className="mr-2" /> Link More Trash
             </Button>
@@ -99,17 +100,21 @@ export default function DashboardPage() {
             <Flame size={16} className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoadingStats ? (
+            {is_loading_stats ? (
               <div className="space-y-2">
                 <Skeleton className="h-8 w-12" />
                 <Skeleton className="h-3 w-24" />
               </div>
-            ) : isErrorStats ? (
-                <div className="text-xs text-destructive">Error loading data</div>
+            ) : is_error_stats ? (
+              <div className="text-xs text-destructive">Error loading data</div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{stats?.egosBruised || 0}</div>
-                <p className="text-xs text-muted-foreground">Coward.</p>
+                <div className="text-2xl font-bold">
+                  {stats?.egos_bruised || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total code autopsies performed.
+                </p>
               </>
             )}
           </CardContent>
@@ -117,21 +122,27 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tears (Litres)</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Tears (Litres)
+            </CardTitle>
             <TrendUpIcon size={16} className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoadingStats ? (
+            {is_loading_stats ? (
               <div className="space-y-2">
                 <Skeleton className="h-8 w-12" />
                 <Skeleton className="h-3 w-24" />
               </div>
-             ) : isErrorStats ? (
-                <div className="text-xs text-destructive">Error loading data</div>
+            ) : is_error_stats ? (
+              <div className="text-xs text-destructive">Error loading data</div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{stats?.tearsLitres || 0}</div>
-                <p className="text-xs text-muted-foreground">Dry eyes? Impossible.</p>
+                <div className="text-2xl font-bold">
+                  {(stats?.total_violations || 0) * 0.1}L
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Derived from cumulative code violations.
+                </p>
               </>
             )}
           </CardContent>
@@ -139,21 +150,27 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Objective Garbage</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Objective Garbage
+            </CardTitle>
             <WarningIcon size={16} className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoadingStats ? (
+            {is_loading_stats ? (
               <div className="space-y-2">
                 <Skeleton className="h-8 w-12" />
                 <Skeleton className="h-3 w-24" />
               </div>
-             ) : isErrorStats ? (
-                <div className="text-xs text-destructive">Error loading data</div>
+            ) : is_error_stats ? (
+              <div className="text-xs text-destructive">Error loading data</div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{stats?.objectiveGarbage || 0}</div>
-                <p className="text-xs text-muted-foreground">Safe... for now.</p>
+                <div className="text-2xl font-bold">
+                  {stats?.active_repos || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Active repositories under analysis.
+                </p>
               </>
             )}
           </CardContent>
@@ -161,21 +178,25 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Hostages (Repos)</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Hostages (Repos)
+            </CardTitle>
             <GithubLogoIcon size={16} className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoadingRepos ? (
+            {is_loading_repos ? (
               <div className="space-y-2">
                 <Skeleton className="h-8 w-12" />
                 <Skeleton className="h-3 w-24" />
               </div>
-             ) : isErrorRepos ? (
-                <div className="text-xs text-destructive">Error loading data</div>
+            ) : is_error_repos ? (
+              <div className="text-xs text-destructive">Error loading data</div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{linkedRepos.length}</div>
-                <p className="text-xs text-muted-foreground">Link a repo. I dare you.</p>
+                <div className="text-2xl font-bold">{linked_repos.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Total repositories linked to account.
+                </p>
               </>
             )}
           </CardContent>
@@ -191,32 +212,76 @@ export default function DashboardPage() {
               A list of pull requests that didn&apos;t stand a chance.
             </CardDescription>
           </CardHeader>
-          <CardContent className="min-h-[300px] flex flex-col items-center justify-center text-center p-8 border-t border-border/50">
-            {isLoadingRoasts ? (
+          <CardContent
+            className={cn(
+              'min-h-[300px] flex flex-col items-center p-6 text-center border-t border-border/50',
+              recent_roasts.length === 0 ? 'border-t-0 justify-center' : ''
+            )}
+          >
+            {is_loading_roasts ? (
               <div className="w-full space-y-4">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-12 w-full" />
                 ))}
               </div>
-             ) : isErrorRoasts ? (
-                <div className="flex flex-col items-center">
-                    <WarningOctagonIcon size={32} className="text-destructive mb-2" />
-                    <p className="text-destructive font-bold">Failed to load roast history.</p>
-                </div>
-            ) : recentRoasts.length === 0 ? (
+            ) : is_error_roasts ? (
+              <div className="flex flex-col items-center">
+                <WarningOctagonIcon
+                  size={32}
+                  className="text-destructive mb-2"
+                />
+                <p className="text-destructive font-bold">
+                  Failed to load roast history.
+                </p>
+              </div>
+            ) : recent_roasts.length === 0 ? (
               <>
                 <div className="rounded-full bg-muted p-4 mb-4">
                   <GhostIcon size={32} className="text-muted-foreground" />
                 </div>
                 <h3 className="font-bold text-lg">No victims found</h3>
                 <p className="text-muted-foreground text-sm max-w-[250px] mt-2 mb-6">
-                  It seems you haven&apos;t submitted any PRs for me to destroy yet.
+                  It seems you haven&apos;t submitted any PRs for me to destroy
+                  yet.
                 </p>
                 <Button variant="outline" className="uppercase font-bold">
                   Submit Code
                 </Button>
               </>
-            ) : null}
+            ) : (
+              <div className="w-full space-y-4">
+                {recent_roasts.map((roast) => (
+                  <div
+                    key={roast.id}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex flex-col text-left">
+                      <span className="font-bold text-sm">{roast.title}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {roast.repo_name} •{' '}
+                        {new Date(roast.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-sm font-bold ${
+                          roast.roast_score >= 7
+                            ? 'text-green-500'
+                            : 'text-destructive'
+                        }`}
+                      >
+                        {roast.roast_score}/10
+                      </span>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/dashboard/repos/${roast.repo_name}`}>
+                          Details
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -229,12 +294,12 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent
             className={
-              linkedRepos.length > 0
+              linked_repos.length > 0
                 ? 'p-0'
                 : 'min-h-[300px] flex flex-col items-center justify-center text-center p-6 border-t border-border/50'
             }
           >
-            {isLoadingRepos ? (
+            {is_loading_repos ? (
               <div className="w-full space-y-6 p-6">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-4">
@@ -246,14 +311,19 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-            ) : isErrorRepos ? (
-                 <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                    <WarningOctagonIcon size={32} className="text-destructive mb-2" />
-                    <p className="text-destructive font-bold">Failed to load victims.</p>
-                </div>
-            ) : linkedRepos.length > 0 ? (
+            ) : is_error_repos ? (
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                <WarningOctagonIcon
+                  size={32}
+                  className="text-destructive mb-2"
+                />
+                <p className="text-destructive font-bold">
+                  Failed to load victims.
+                </p>
+              </div>
+            ) : linked_repos.length > 0 ? (
               <div className="divide-y divide-border">
-                {linkedRepos.slice(0, 5).map((repo) => (
+                {linked_repos.slice(0, 5).map((repo) => (
                   <div
                     key={repo.id}
                     className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
@@ -275,13 +345,13 @@ export default function DashboardPage() {
                     </Button>
                   </div>
                 ))}
-                {linkedRepos.length > 5 && (
+                {linked_repos.length > 5 && (
                   <div className="p-4 text-center">
                     <Link
                       href="/dashboard/repos"
                       className="text-sm text-muted-foreground hover:text-foreground"
                     >
-                      View all {linkedRepos.length} repos
+                      View all {linked_repos.length} repos
                     </Link>
                   </div>
                 )}
