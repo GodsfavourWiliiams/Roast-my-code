@@ -1,6 +1,7 @@
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/components/auth-provider';
+import { QueryProvider } from '@/components/query-provider';
 import type { Metadata } from 'next';
 import { Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
@@ -41,12 +42,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <div className="font-[family-name:var(--font-space-grotesk)] min-h-screen">
-              {children}
-            </div>
-            <Toaster position="top-center" richColors />
-          </AuthProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <div className="font-[family-name:var(--font-space-grotesk)] min-h-screen">
+                {children}
+              </div>
+              <Toaster position="top-center" richColors />
+            </AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>
