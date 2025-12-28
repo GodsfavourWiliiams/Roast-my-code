@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/card';
 import {
   GithubLogoIcon,
-  Code,
   CircleNotchIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import { useAuth } from '@/components/auth-provider';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import Image from 'next/image';
 
 function LoginForm() {
   const { login, isLoading } = useAuth();
@@ -26,8 +26,14 @@ function LoginForm() {
   return (
     <Card className="w-full max-w-md border-2 border-border shadow-[4px_4px_0px_0px_var(--primary)]">
       <CardHeader className="space-y-4 text-center pb-2">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-none bg-primary text-primary-foreground">
-          <Code size={32} weight="bold" />
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg bg-primary text-primary-foreground p-4">
+          <Image
+            src="/logo-white.svg"
+            alt="RoastBot Logo"
+            width={32}
+            height={32}
+            className="w-full h-full"
+          />
         </div>
         <div className="space-y-2">
           <CardTitle className="text-2xl font-bold tracking-tight uppercase">
@@ -40,9 +46,9 @@ function LoginForm() {
       </CardHeader>
       <CardContent className="space-y-6 text-center">
         {error && (
-            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md font-mono border border-destructive/20 break-words">
-              Error: {error}
-            </div>
+          <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md font-mono border border-destructive/20 wrap-break-word">
+            Error: {error}
+          </div>
         )}
         <p className="text-muted-foreground">
           Connect your GitHub account. We need access to your repositories to
@@ -78,8 +84,8 @@ function LoginForm() {
         <div className="space-y-2 text-center">
           <p className="text-[10px] text-muted-foreground px-8 leading-tight">
             Note: You may be asked to install the{' '}
-            <strong>RoastBot GitHub App</strong> after login to allow the bot
-            to comment on your Pull Requests.
+            <strong>RoastBot GitHub App</strong> after login to allow the bot to
+            comment on your Pull Requests.
           </p>
           <p className="text-xs text-muted-foreground px-8">
             By clicking above, you agree to waive all rights to emotional
