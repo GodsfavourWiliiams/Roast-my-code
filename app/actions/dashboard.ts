@@ -3,56 +3,60 @@
 import { createClient } from '@/lib/supabase/server';
 
 export interface DashboardStats {
-  egosBruised: number;
-  tearsLitres: number;
-  objectiveGarbage: number;
+  egos_bruised: number;
+  total_violations: number;
+  active_repos: number;
 }
 
 export interface RecentRoast {
   id: number;
   title: string;
-  repoName: string;
-  roastScore: number;
+  repo_name: string;
+  roast_score: number;
   description: string;
   date: string;
 }
 
-export async function fetchDashboardStats(): Promise<{ stats: DashboardStats; error: string | null }> {
+export async function fetchDashboardStats(): Promise<{
+  stats: DashboardStats;
+  error: string | null;
+}> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    return { stats: { egosBruised: 0, tearsLitres: 0, objectiveGarbage: 0 }, error: 'Not authenticated' };
+    return {
+      stats: { egos_bruised: 0, total_violations: 0, active_repos: 0 },
+      error: 'Not authenticated',
+    };
   }
 
-  // 1. Egos Bruised = Total Roasts Count
-  const { count: egosBruised, error: countError } = await supabase
+  // 1. egos_bruised = Total Roasts Count
+  const { count: egos_bruised, error: countError } = await supabase
     .from('roasts')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id);
 
   if (countError) {
-     console.error("Error fetching stats:", countError);
-     return { stats: { egosBruised: 0, tearsLitres: 0, objectiveGarbage: 0 }, error: countError.message };
+    return {
+      stats: { egos_bruised: 0, total_violations: 0, active_repos: 0 },
+      error: countError.message,
+    };
   }
 
-  // 2. Tears Litres = Sum of roast scores (just a fun metric derivation)
-  // We need to fetch scores to sum them
+  // 2. total_violations (Sum of violations_count)
   const { data: roasts } = await supabase
     .from('roasts')
-    .select('roast_score')
+    .select('violations_count')
     .eq('user_id', user.id);
 
-  let totalScore = 0;
-  if (roasts) {
-    totalScore = roasts.reduce((acc, curr) => acc + (curr.roast_score || 0), 0);
-  }
+  const total_violations =
+    roasts?.reduce((acc, curr) => acc + (curr.violations_count || 0), 0) || 0;
 
-  // Calculate tears based on score (e.g. 0.5L per point)
-  const tearsLitres = parseFloat((totalScore * 0.5).toFixed(1));
-
-  // 3. Objective Garbage = Number of Repos with status 'Running'
-  const { count: objectiveGarbage } = await supabase
+  // 3. active_repos = Number of Active Repos
+  const { count: active_repos } = await supabase
     .from('repositories')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
@@ -60,17 +64,22 @@ export async function fetchDashboardStats(): Promise<{ stats: DashboardStats; er
 
   return {
     stats: {
-      egosBruised: egosBruised || 0,
-      tearsLitres: tearsLitres,
-      objectiveGarbage: objectiveGarbage || 0,
+      egos_bruised: egos_bruised || 0,
+      total_violations: total_violations,
+      active_repos: active_repos || 0,
     },
     error: null,
   };
 }
 
-export async function fetchRecentRoasts(): Promise<{ roasts: RecentRoast[]; error: string | null }> {
+export async function fetchRecentRoasts(): Promise<{
+  roasts: RecentRoast[];
+  error: string | null;
+}> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     return { roasts: [], error: 'Not authenticated' };
@@ -78,29 +87,31 @@ export async function fetchRecentRoasts(): Promise<{ roasts: RecentRoast[]; erro
 
   const { data, error } = await supabase
     .from('roasts')
-    .select(`
+    .select(
+      `
       id,
       pr_title,
+      pr_number,
       roast_content,
       roast_score,
       created_at,
       repositories (
         name
       )
-    `)
+    `
+    )
     .eq('user_id', user.id)
-    .not('pr_number', 'is', null) // Only include actual PRs
     .order('created_at', { ascending: false })
     .limit(5);
 
   if (error) {
-    console.error("Error fetching recent roasts:", error);
     return { roasts: [], error: error.message };
   }
 
   type RoastQueryResult = {
     id: number;
     pr_title: string | null;
+    pr_number: number | null;
     roast_content: string | null;
     roast_score: number | null;
     created_at: string;
@@ -114,9 +125,11 @@ export async function fetchRecentRoasts(): Promise<{ roasts: RecentRoast[]; erro
 
     return {
       id: item.id,
-      title: item.pr_title || 'Unknown PR',
-      repoName: repo?.name || 'Unknown Repo',
-      roastScore: item.roast_score || 0,
+      title:
+        item.pr_title ||
+        (item.pr_number ? `PR #${item.pr_number}` : 'Manual Roast'),
+      repo_name: repo?.name || 'Unknown Repo',
+      roast_score: item.roast_score || 0,
       description: item.roast_content || '',
       date: item.created_at,
     };

@@ -54,29 +54,45 @@ export async function POST(req: Request) {
 
     console.log(`[API/Roast] Starting Gemini stream using gemini-flash-latest with persona: ${persona}`);
 
-    const result = streamText({
-      model: google('models/gemini-flash-latest'),
-      system: `${personaInstruction} Review the code in '${filename}'. Start with "Score: X/10" then provide the review in Markdown.`, 
-      prompt: `Review this code:\n\n${code}`,
-      onFinish: async ({ text }) => {
-        console.log(`[API/Roast] Stream finished. Generated ${text.length} characters.`);
-        
-        if (text.length === 0) {
-            console.error("[API/Roast] Error: Generated text is empty.");
-            return; 
-        }
-
-        const scoreMatch = text.match(/Score:\s*(\d+)\/10/i);
-        const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
-
-        const { error: dbError } = await supabase.from('roasts').insert({
-          user_id: user.id,
-          repo_id: repoId,
-          pr_title: `Manual Roast: ${filename}`,
-          roast_content: text,
-          roast_score: score,
-        });
-
+        const result = streamText({
+          model: google('models/gemini-flash-latest'),
+          system: `${personaInstruction} Review the code in '${filename}'. 
+          
+          CRITICAL: You MUST start your response with exactly this format:
+          Score: X/10
+          Violations: X
+          Critical Issues: X
+          
+          Then provide the rest of your review in Markdown.`,
+          prompt: `Review this code:\n\n${code}`,
+          onFinish: async ({ text }) => {
+            console.log(`[API/Roast] Stream finished. Generated ${text.length} characters.`);
+            
+            if (text.length === 0) {
+                console.error("[API/Roast] Error: Generated text is empty.");
+                return; 
+            }
+    
+            // Improved Regex for structured data
+            const scoreMatch = text.match(/Score:\s*(\d+)\/10/i);
+            const violationsMatch = text.match(/Violations:\s*(\d+)/i);
+            const criticalMatch = text.match(/Critical Issues:\s*(\d+)/i);
+    
+            const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+            const violations = violationsMatch ? parseInt(violationsMatch[1]) : 0;
+            const critical = criticalMatch ? parseInt(criticalMatch[1]) : 0;
+    
+            console.log(`[API/Roast] Parsed metrics - Score: ${score}, Violations: ${violations}, Critical: ${critical}`);
+    
+            const { error: dbError } = await supabase.from('roasts').insert({
+              user_id: user.id,
+              repo_id: repoId,
+              pr_title: `Manual Roast: ${filename}`,
+              roast_content: text,
+              roast_score: score,
+              violations_count: violations,
+              critical_issues_count: critical,
+            });
         if (dbError) {
             console.error("[API/Roast] Database Insert Error:", dbError);
         } else {

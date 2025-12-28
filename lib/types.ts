@@ -10,6 +10,7 @@ export interface GithubRepo {
   watchers_count: number;
   private: boolean;
   updated_at: string;
+  default_branch: string;
 }
 
 export interface Repository {
@@ -22,7 +23,7 @@ export interface Repository {
   stars: string;
   forks: string;
   watchers: string;
-  updatedAt: string;
+  updated_at: string;
   status: 'Running' | 'Paused';
   private: boolean;
   pending_murders: number;

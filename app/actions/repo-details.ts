@@ -64,11 +64,11 @@ export async function getRepoDetails(repoName: string): Promise<{ data: RepoDeta
 
   // 3. Logic-Driven Statistics
   
-  // Total Violations = Total number of Roasts (Manual + PR)
-  const totalViolations = roasts.length;
+  // Total Violations = Sum of explicit violations detected by AI
+  const totalViolations = roasts.reduce((acc, r) => acc + (r.violations_count || 0), 0);
   
-  // Critical Issues = Roasts with a score of 3 or lower (Objective garbage)
-  const criticalIssues = roasts.filter(r => r.roast_score !== null && r.roast_score <= 3).length;
+  // Critical Issues = Sum of explicit critical issues detected by AI
+  const criticalIssues = roasts.reduce((acc, r) => acc + (r.critical_issues_count || 0), 0);
 
   // Survival Rate = Strictly based on Pull Requests (PRs)
   // Survival = PR score >= 7
@@ -81,7 +81,7 @@ export async function getRepoDetails(repoName: string): Promise<{ data: RepoDeta
     ? -1 
     : Math.round((prSurvivors / totalPrs) * 100);
 
-  console.log(`[Stats/${repoName}] Total:${totalViolations} | Critical:${criticalIssues} | PRs:${totalPrs} | Survival:${survivalRate}%`);
+  console.log(`[Stats/${repoName}] Violations:${totalViolations} | Critical:${criticalIssues} | PRs:${totalPrs} | Survival:${survivalRate}%`);
 
   return {
     data: {
