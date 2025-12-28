@@ -82,8 +82,8 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            {!isLoading && (
-              user ? (
+            {!isLoading &&
+              (user ? (
                 <Link
                   href="/dashboard"
                   className="text-sm font-medium text-slate-400 hover:text-white hidden sm:block"
@@ -91,19 +91,12 @@ export default function LandingPage() {
                   Dashboard
                 </Link>
               ) : (
-                <Link
-                  href="/login"
-                  className="text-sm font-medium text-slate-400 hover:text-white hidden sm:block"
-                >
-                  Log in
+                <Link href="/login">
+                  <Button className="bg-white text-black hover:bg-slate-200 font-medium h-9 rounded-full px-5 text-sm">
+                    Log in
+                  </Button>
                 </Link>
-              )
-            )}
-            <Link href="/install">
-              <Button className="bg-white text-black hover:bg-slate-200 font-medium h-9 rounded-full px-5 text-sm">
-                Install on GitHub
-              </Button>
-            </Link>
+              ))}
           </div>
         </div>
       </nav>

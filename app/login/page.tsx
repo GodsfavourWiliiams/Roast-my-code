@@ -17,6 +17,7 @@ import { useAuth } from '@/components/auth-provider';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import Image from 'next/image';
+import { TerminalFeed } from '@/components/terminal-feed';
 
 function LoginForm() {
   const { login, isLoading } = useAuth();
@@ -24,9 +25,9 @@ function LoginForm() {
   const error = searchParams.get('error');
 
   return (
-    <Card className="w-full max-w-md border-2 border-border shadow-[4px_4px_0px_0px_var(--primary)]">
+    <Card className="w-full max-w-md">
       <CardHeader className="space-y-4 text-center pb-2">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg bg-primary text-primary-foreground p-4">
+        <div className="mx-auto flex size-12 sm:size-16 items-center justify-center p-2 bg-primary text-primary-foreground rounded-lg sm:p-4">
           <Image
             src="/logo-white.svg"
             alt="RoastBot Logo"
@@ -36,36 +37,25 @@ function LoginForm() {
           />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-2xl font-bold tracking-tight uppercase">
+          <CardTitle className="text-xl sm:text-2xl font-bold tracking-tight uppercase">
             Identify Yourself
           </CardTitle>
-          <CardDescription className="font-mono text-xs uppercase tracking-widest text-primary font-bold">
+          <CardDescription className="font-mono text-xs sm:text-sm uppercase tracking-widest text-primary font-bold">
             Access Restricted to Developers
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6 text-center">
+      <CardContent className="space-y-4 sm:space-y-6 text-center">
         {error && (
           <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md font-mono border border-destructive/20 wrap-break-word">
             Error: {error}
           </div>
         )}
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Connect your GitHub account. We need access to your repositories to
           analyze exactly how bad your code really is.
         </p>
-        <div className="bg-muted p-4 border border-border font-mono text-xs text-left space-y-2">
-          <p className="text-green-600 dark:text-green-400">
-            $ initiating_handshake...
-          </p>
-          <p className="text-muted-foreground">$ awaiting_credentials...</p>
-          {isLoading && (
-            <p className="text-primary font-bold italic animate-pulse">
-              # verifying_ego_levels...
-            </p>
-          )}
-          <p className="animate-pulse">_</p>
-        </div>
+        <TerminalFeed isLoading={isLoading} />
       </CardContent>
       <CardFooter className="flex flex-col gap-4">
         <Button
