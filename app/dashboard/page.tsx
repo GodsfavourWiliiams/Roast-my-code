@@ -8,16 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   PlusIcon,
@@ -32,8 +22,14 @@ import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [data, setData] = useState<{ recentRoasts: any[]; linkedRepos: any[] } | null>(null);
+  const [error] = useState(false);
+  const [data, setData] = useState<{
+    recentRoasts: unknown[];
+    linkedRepos: unknown[];
+  }>({ recentRoasts: [], linkedRepos: [] } as {
+    recentRoasts: unknown[];
+    linkedRepos: unknown[];
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -48,13 +44,16 @@ export default function DashboardPage() {
     return (
       <div className="flex h-[80vh] w-full flex-col items-center justify-center text-center p-4">
         <div className="mb-6 rounded-full bg-destructive/10 p-6">
-          <WarningOctagon size={64} className="text-destructive animate-pulse" />
+          <WarningOctagon
+            size={64}
+            className="text-destructive animate-pulse"
+          />
         </div>
         <h2 className="text-2xl font-black uppercase tracking-widest text-destructive mb-2">
           Command Center Offline
         </h2>
         <p className="max-w-md text-muted-foreground mb-6">
-          &gt; Error: Connection refused by ego-server. <br/>
+          &gt; Error: Connection refused by ego-server. <br />
           &gt; Status: Terminal failure.
         </p>
         <Button onClick={() => window.location.reload()} variant="outline">
@@ -87,13 +86,27 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[
           { title: 'Egos Bruised', icon: Flame, desc: 'Coward.' },
-          { title: 'Total Tears (Litres)', icon: TrendUp, desc: 'Dry eyes? Impossible.' },
-          { title: 'Objective Garbage', icon: Warning, desc: 'Safe... for now.' },
-          { title: 'Hostages (Repos)', icon: GithubLogo, desc: 'Link a repo. I dare you.' },
+          {
+            title: 'Total Tears (Litres)',
+            icon: TrendUp,
+            desc: 'Dry eyes? Impossible.',
+          },
+          {
+            title: 'Objective Garbage',
+            icon: Warning,
+            desc: 'Safe... for now.',
+          },
+          {
+            title: 'Hostages (Repos)',
+            icon: GithubLogo,
+            desc: 'Link a repo. I dare you.',
+          },
         ].map((stat, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {stat.title}
+              </CardTitle>
               <stat.icon size={16} className="text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -136,7 +149,8 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="font-bold text-lg">No victims found</h3>
                 <p className="text-muted-foreground text-sm max-w-[250px] mt-2 mb-6">
-                  It seems you haven't submitted any PRs for me to destroy yet.
+                  It seems you haven&apos;t submitted any PRs for me to destroy
+                  yet.
                 </p>
                 <Button variant="outline" className="uppercase font-bold">
                   Submit Code
@@ -155,7 +169,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="min-h-[300px] flex flex-col items-center justify-center text-center p-8 border-t border-border/50">
             {isLoading ? (
-               <div className="w-full space-y-6">
+              <div className="w-full space-y-6">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-4">
                     <Skeleton className="h-10 w-10 rounded-full" />
