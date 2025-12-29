@@ -51,10 +51,8 @@ export function RepoCard({ repo, installation_id }: { repo: Repository, installa
 
   const { mutate: toggleStatus, isPending: isStatusPending } = useMutation({
     mutationFn: async () => {
-      if (!isAppInstalled && repo.status === 'Paused') {
-          throw new Error("App must be installed to start analysis.");
-      }
       if (!repo.id) throw new Error('Repo ID missing');
+      // If Idle, start Running. If Paused, start Running. If Running, Pause.
       const newStatus = repo.status === 'Running' ? 'Paused' : 'Running';
       const result = await updateRepoStatus(repo.id, newStatus);
       if (result.error) throw new Error(result.error);
@@ -100,30 +98,43 @@ export function RepoCard({ repo, installation_id }: { repo: Repository, installa
   const getFrameworkIcon = (repo: Repository) => {
     if (repo.framework) {
       switch (repo.framework) {
-        case 'Next.js': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg';
-        case 'React': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg';
-        case 'Vue': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg';
-        case 'Nuxt': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nuxtjs/nuxt-original.svg';
-        case 'Angular': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/angularjs/angularjs-original.svg';
-        case 'Svelte': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/svelte/svelte-original.svg';
-        case 'NestJS': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nestjs/nestjs-original.svg';
-        case 'Express': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/express/express-original.svg';
-        case 'Python': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg';
-        case 'Java': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg';
-        case 'Go': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg';
-        case 'Rust': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/rust/rust-plain.svg';
-        case 'TypeScript': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg';
-        case 'JavaScript': return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg';
+        case 'Next.js':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg';
+        case 'React':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg';
+        case 'Vue':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg';
+        case 'Nuxt':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nuxtjs/nuxt-original.svg';
+        case 'Angular':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/angularjs/angularjs-original.svg';
+        case 'Svelte':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/svelte/svelte-original.svg';
+        case 'NestJS':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nestjs/nestjs-original.svg';
+        case 'Express':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/express/express-original.svg';
+        case 'Python':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg';
+        case 'Java':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg';
+        case 'Go':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg';
+        case 'Rust':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/rust/rust-plain.svg';
+        case 'TypeScript':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg';
+        case 'JavaScript':
+          return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg';
       }
     }
     return '/github-icon.png';
   };
 
   const avatarSrc = getFrameworkIcon(repo);
-
   return (
     <motion.div variants={itemVariants} className="h-full">
-      <Card 
+      <Card
         className="flex h-full flex-col border-muted-foreground/20 hover:border-primary/50 transition-colors duration-300 cursor-pointer"
         onClick={() => router.push(`/dashboard/repos/${repo.name}`)}
       >
@@ -138,7 +149,13 @@ export function RepoCard({ repo, installation_id }: { repo: Repository, installa
                 <AvatarFallback>GH</AvatarFallback>
               </Avatar>
               <span className="truncate">{repo.name}</span>
-              {repo.private && <Lock size={12} weight="bold" className="text-muted-foreground" />}
+              {repo.private && (
+                <Lock
+                  size={12}
+                  weight="bold"
+                  className="text-muted-foreground"
+                />
+              )}
             </CardTitle>
             <CardDescription className="line-clamp-2">
               {repo.description}
@@ -148,74 +165,104 @@ export function RepoCard({ repo, installation_id }: { repo: Repository, installa
           <div className="flex items-center gap-2">
             <Badge
               variant={repo.status === 'Running' ? 'default' : 'secondary'}
-              className={`cursor-pointer select-none transition-colors ${
+              className={`cursor-pointer select-none transition-colors relative z-30 ${
                 repo.status === 'Running'
                   ? 'bg-green-500 hover:bg-green-600'
+                  : repo.status === 'Idle'
+                  ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20'
                   : 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20'
-              } ${!isAppInstalled && repo.status === 'Paused' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              }`}
               onClick={(e) => {
                 e.stopPropagation();
-                if (!isAppInstalled && repo.status === 'Paused') {
-                    toast.error("Install the GitHub App to start analysis.");
-                    return;
+                if (
+                  !isAppInstalled &&
+                  (repo.status === 'Paused' || repo.status === 'Idle')
+                ) {
+                  toast.error('Install the GitHub App to start analysis.');
+                  return;
                 }
                 if (!isStatusPending) toggleStatus();
               }}
             >
-              {repo.status === 'Running' ? 'Running' : 'Paused'}
+              {repo.status}
             </Badge>
 
             {/* Dropdown - Fixed Click Propagation */}
             <div onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button
-                    variant="ghost"
-                    className="h-8 w-8 p-0"
-                    >
+                  <Button variant="ghost" className="h-8 w-8 p-0">
                     <span className="sr-only">Open menu</span>
                     <EllipsisVertical />
-                    </Button>
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Regrettable Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onSelect={() => {
-                                            if (!isAppInstalled && repo.status === 'Paused') {
-                                                toast.error("Install the GitHub App to start analysis.");
-                                                return;
-                                            }
-                                            if (!isStatusPending) toggleStatus();
-                                        }}
-                                        disabled={isStatusPending}
-                                        className={!isAppInstalled && repo.status === 'Paused' ? 'opacity-50' : ''}
-                                        >
-                                        {repo.status === 'Running' ? 'Pause Analysis' : 'Resume Analysis'}
-                                        {!isAppInstalled && repo.status === 'Paused' && (
-                                            <span className="ml-auto text-[10px] bg-yellow-500/10 text-yellow-600 px-1 rounded">Required</span>
-                                        )}
-                                        </DropdownMenuItem>                    <DropdownMenuItem 
-                        onSelect={() => router.push(`/dashboard/repos/${repo.name}`)}
-                        className="font-bold"
-                    >
-                        Examine Failures
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleCopyId}>
-                        Copy Shame ID
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => window.open(`https://github.com/${repo.full_name}`, '_blank')}>
-                        View Crime Scene (GitHub)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                        onSelect={() => setDeleteDialogOpen(true)}
-                        className="text-red-600 font-bold text-xs uppercase focus:text-red-600 focus:bg-red-50"
-                    >
-                        Erase from Existence
-                    </DropdownMenuItem>
+                  <DropdownMenuLabel>Regrettable Actions</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      if (
+                        !isAppInstalled &&
+                        (repo.status === 'Paused' || repo.status === 'Idle')
+                      ) {
+                        toast.error(
+                          'Install the GitHub App to start analysis.'
+                        );
+                        return;
+                      }
+                      if (!isStatusPending) toggleStatus();
+                    }}
+                    disabled={isStatusPending}
+                    className={
+                      !isAppInstalled &&
+                      (repo.status === 'Paused' || repo.status === 'Idle')
+                        ? 'opacity-50'
+                        : ''
+                    }
+                  >
+                    {repo.status === 'Running'
+                      ? 'Pause Analysis'
+                      : 'Start Analysis'}
+                    {!isAppInstalled &&
+                      (repo.status === 'Paused' || repo.status === 'Idle') && (
+                        <span className="ml-auto text-[10px] bg-yellow-500/10 text-yellow-600 px-1 rounded">
+                          Required
+                        </span>
+                      )}
+                  </DropdownMenuItem>{' '}
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      router.push(`/dashboard/repos/${repo.name}`)
+                    }
+                    className="font-bold"
+                  >
+                    Examine Failures
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleCopyId}>
+                    Copy Shame ID
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      window.open(
+                        `https://github.com/${repo.full_name}`,
+                        '_blank'
+                      )
+                    }
+                  >
+                    View Crime Scene (GitHub)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.stopPropagation();
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="text-red-600 font-bold text-xs uppercase focus:text-red-600 focus:bg-red-50"
+                  >
+                    Erase from Existence
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
-                </DropdownMenu>
+              </DropdownMenu>
             </div>
 
             <ConfirmDialog
@@ -241,7 +288,7 @@ export function RepoCard({ repo, installation_id }: { repo: Repository, installa
             <div className="italic text-xs">Ruined {repo.updated_at}</div>
           </div>
 
-          <div 
+          <div
             className="flex items-center bg-muted/50 p-2 rounded-md"
             onClick={(e) => e.stopPropagation()}
           >

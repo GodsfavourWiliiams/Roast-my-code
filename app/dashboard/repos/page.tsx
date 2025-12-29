@@ -9,11 +9,10 @@ import {
   MagnifyingGlassIcon,
   TrashIcon,
   WarningOctagon,
-  CircleNotch,
   Lock,
   Globe,
-  GitBranch,
   CircleNotchIcon,
+  WarningOctagonIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import {
   DropdownMenu,
@@ -67,9 +66,12 @@ function useDebounceValue<T>(value: T, delay: number): T {
 
 import { getUserSettings } from '@/app/actions/settings';
 
+import { createClient } from '@/lib/supabase/client';
+
 export default function ReposPage() {
   const [filter, setFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
+  const supabase = createClient();
   
   // Search states
   const [modalSearchQuery, setModalSearchQuery] = useState('');
@@ -87,25 +89,28 @@ export default function ReposPage() {
     queryFn: async () => {
       const { settings } = await getUserSettings();
       return settings;
-    }
+    },
   });
 
   // Query for saved repositories (Server-side search & filter)
   const {
     data: savedReposData,
     isLoading: isLoadingSaved,
-    isError: isErrorSaved
+    isError: isErrorSaved,
   } = useQuery({
     queryKey: ['savedRepos', debouncedDashboardSearch, filter],
     queryFn: async () => {
       const { repos, error } = await getSavedRepos({
         search: debouncedDashboardSearch,
-        filter
+        filter,
       });
       if (error) throw new Error(error);
       return repos;
     },
   });
+
+  // Create a Set of saved repo IDs for efficient lookup
+  const savedRepoIds = new Set(savedReposData?.map((repo) => repo.github_id));
 
   // Query for GitHub repositories (Standard list, max 20)
   const {
@@ -124,7 +129,7 @@ export default function ReposPage() {
     },
     enabled: isOpen,
   });
-  console.log(githubRepos);
+  console.log(savedReposData);
   // Mutation for saving a repository
   const { mutate: importRepo, isPending: isImporting } = useMutation({
     mutationFn: async (repo: GithubRepo) => {
@@ -136,7 +141,7 @@ export default function ReposPage() {
     onSuccess: (repo) => {
       toast.success(`${repo.name} added to the kill list.`);
       queryClient.invalidateQueries({ queryKey: ['savedRepos'] });
-      setIsOpen(false);
+      // Keep dialog open to allow more imports, but update state
       setImportingId(null);
     },
     onError: (error: Error) => {
@@ -153,9 +158,6 @@ export default function ReposPage() {
       description: r.description || 'No description provided (lazy).',
       language: r.language || 'Unknown',
       framework: r.framework,
-      stars: '0',
-      forks: '0',
-      watchers: '0',
       updated_at: new Date(r.updated_at).toLocaleDateString(),
       status: r.status,
       private: r.private,
@@ -176,7 +178,7 @@ export default function ReposPage() {
     return (
       <div className="flex h-[80vh] w-full flex-col items-center justify-center text-center p-4">
         <div className="mb-6 rounded-full bg-destructive/10 p-6">
-          <WarningOctagon
+          <WarningOctagonIcon
             size={64}
             className="text-destructive animate-pulse"
           />
@@ -290,63 +292,84 @@ export default function ReposPage() {
                     </div>
                   ) : (
                     <>
-                      {githubRepos?.map((repo) => (
-                        <div
-                          key={repo.id}
-                          className="group flex items-center justify-between p-3 rounded-md border border-transparent hover:border-border hover:bg-muted/30 transition-all"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-9 w-9 shrink-0 rounded-md bg-muted flex items-center justify-center border border-border">
-                              {repo.private ? (
-                                <Lock size={18} weight="bold" />
-                              ) : (
-                                <Globe size={18} />
-                              )}
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm truncate">
-                                  {repo.name}
-                                </span>
-                                {repo.private && (
-                                  <Lock
-                                    size={12}
-                                    weight="fill"
-                                    className="text-muted-foreground shrink-0"
-                                  />
-                                )}
-                              </div>
-                              <div className="text-[11px] text-muted-foreground truncate">
-                                {repo.updated_at && (
-                                  <span>
-                                    Last updated{' '}
-                                    {new Date(
-                                      repo.updated_at
-                                    ).toLocaleDateString(undefined, {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                    })}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => importRepo(repo)}
-                            disabled={isImporting}
-                            variant="secondary"
-                            className="h-8 text-xs font-bold uppercase tracking-wider"
+                      {githubRepos?.map((repo) => {
+                        const isAdded = savedRepoIds.has(repo.id);
+                        return (
+                          <div
+                            key={repo.id}
+                            className={`group flex items-center justify-between p-3 rounded-md border border-transparent transition-all ${
+                              isAdded
+                                ? 'opacity-50'
+                                : 'hover:border-border hover:bg-muted/30'
+                            }`}
                           >
-                            {importingId === repo.id ? (
-                              <CircleNotchIcon className="animate-spin" />
-                            ) : (
-                              'Import'
-                            )}
-                          </Button>
-                        </div>
-                      ))}
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-9 w-9 shrink-0 rounded-md bg-muted flex items-center justify-center border border-border">
+                                {repo.private ? (
+                                  <Lock size={18} weight="bold" />
+                                ) : (
+                                  <Globe size={18} />
+                                )}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm truncate">
+                                    {repo.name}
+                                  </span>
+                                  {repo.private && (
+                                    <Lock
+                                      size={12}
+                                      weight="fill"
+                                      className="text-muted-foreground shrink-0"
+                                    />
+                                  )}
+                                  {repo.owner?.type === 'Organization' && (
+                                    <span className="text-[10px] bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded border border-blue-500/20 shrink-0 font-medium">
+                                      Org
+                                    </span>
+                                  )}
+                                  {isAdded && (
+                                    <span className="text-[10px] bg-green-500/10 text-green-600 px-1.5 py-0.5 rounded border border-green-500/20 shrink-0 font-medium flex items-center gap-1">
+                                      Added
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                                  <span>{repo.owner?.login}</span>
+                                  <span>•</span>
+                                  {repo.updated_at && (
+                                    <span>
+                                      Updated{' '}
+                                      {new Date(
+                                        repo.updated_at
+                                      ).toLocaleDateString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => importRepo(repo)}
+                              disabled={isImporting || isAdded}
+                              variant={isAdded ? 'ghost' : 'secondary'}
+                              className="h-8 text-xs font-bold uppercase tracking-wider"
+                            >
+                              {importingId === repo.id ? (
+                                <CircleNotchIcon className="animate-spin" />
+                              ) : isAdded ? (
+                                'Imported'
+                              ) : (
+                                'Import'
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </>
                   )}
                 </div>
@@ -404,6 +427,12 @@ export default function ReposPage() {
             >
               Cold Ashes (Paused)
             </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={filter === 'idle'}
+              onCheckedChange={() => setFilter('idle')}
+            >
+              Fresh Meat (Idle)
+            </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -434,10 +463,10 @@ export default function ReposPage() {
           animate="show"
         >
           {repositories.map((repo) => (
-            <RepoCard 
-                key={repo.name} 
-                repo={repo} 
-                installation_id={settings?.installation_id}
+            <RepoCard
+              key={repo.name}
+              repo={repo}
+              installation_id={settings?.installation_id}
             />
           ))}
         </motion.div>

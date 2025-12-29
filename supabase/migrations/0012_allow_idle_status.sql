@@ -1,0 +1,4 @@
+-- Update status check constraint if it exists, or just allow text.
+-- Since we defined it as text default 'Running', we don't need a migration if there is no check constraint.
+-- But it's good practice to document valid statuses.
+-- Valid statuses: 'Running', 'Paused', 'Idle'

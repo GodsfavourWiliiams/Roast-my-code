@@ -310,14 +310,13 @@ export async function saveRepo(repo: GithubRepo) {
       .eq('user_id', user.id)
       .single();
   
-    // Default status: Run if setting is true AND app is installed. Otherwise Pause.
-    const initialStatus =
-      settings?.auto_run_new_repos && settings?.installation_id
-        ? 'Running'
-        : 'Paused';
-  
-    const { error: upsertError } = await supabase
-      .from('repositories')
+      // Default status: Run if setting is true AND app is installed. Otherwise Idle (not Paused).
+      const initialStatus =
+        settings?.auto_run_new_repos && settings?.installation_id
+          ? 'Running'
+          : 'Idle';
+    
+      const { error: upsertError } = await supabase      .from('repositories')
       .upsert({
         user_id: user.id,
         github_id: repo.id,
@@ -403,7 +402,7 @@ export interface SavedRepo {
   url: string;
   default_branch: string;
   private: boolean;
-  status: 'Running' | 'Paused';
+  status: 'Running' | 'Paused' | 'Idle';
   open_prs_count: number;
   created_at: string;
   updated_at: string;
