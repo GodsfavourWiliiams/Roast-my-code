@@ -65,31 +65,42 @@ function useDebounceValue<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+import { getUserSettings } from '@/app/actions/settings';
+
 export default function ReposPage() {
   const [filter, setFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
-
+  
   // Search states
   const [modalSearchQuery, setModalSearchQuery] = useState('');
   const debouncedModalSearch = useDebounceValue(modalSearchQuery, 500);
-
+  
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
   const debouncedDashboardSearch = useDebounceValue(dashboardSearchQuery, 500);
 
   const [importingId, setImportingId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
+  // Query for user settings (to check installation status)
+  const { data: settings } = useQuery({
+    queryKey: ['userSettings'],
+    queryFn: async () => {
+      const { settings } = await getUserSettings();
+      return settings;
+    }
+  });
+
   // Query for saved repositories (Server-side search & filter)
   const {
     data: savedReposData,
     isLoading: isLoadingSaved,
-    isError: isErrorSaved,
+    isError: isErrorSaved
   } = useQuery({
     queryKey: ['savedRepos', debouncedDashboardSearch, filter],
     queryFn: async () => {
       const { repos, error } = await getSavedRepos({
         search: debouncedDashboardSearch,
-        filter,
+        filter
       });
       if (error) throw new Error(error);
       return repos;
@@ -423,7 +434,11 @@ export default function ReposPage() {
           animate="show"
         >
           {repositories.map((repo) => (
-            <RepoCard key={repo.name} repo={repo} />
+            <RepoCard 
+                key={repo.name} 
+                repo={repo} 
+                installation_id={settings?.installation_id}
+            />
           ))}
         </motion.div>
       ) : (

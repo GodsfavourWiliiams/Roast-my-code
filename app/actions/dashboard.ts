@@ -118,7 +118,7 @@ export async function fetchRecentRoasts(): Promise<{
     repositories: { name: string } | { name: string }[] | null;
   };
 
-  const roasts: RecentRoast[] = (data || []).map((item: RoastQueryResult) => {
+  const roasts: RecentRoast[] = (data as unknown as RoastQueryResult[]).map((item) => {
     const repo = Array.isArray(item.repositories)
       ? item.repositories[0]
       : item.repositories;

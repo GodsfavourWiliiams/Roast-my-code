@@ -8,9 +8,9 @@ export interface GithubRepo {
   stargazers_count: number;
   forks_count: number;
   watchers_count: number;
+  default_branch: string;
   private: boolean;
   updated_at: string;
-  default_branch: string;
 }
 
 export interface Repository {
