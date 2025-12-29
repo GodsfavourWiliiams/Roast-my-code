@@ -42,13 +42,18 @@ const itemVariants = {
   show: { y: 0, opacity: 1 },
 };
 
-export function RepoCard({ repo }: { repo: Repository }) {
+export function RepoCard({ repo, installation_id }: { repo: Repository, installation_id?: number | null }) {
   const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const router = useRouter();
 
+  const isAppInstalled = !!installation_id;
+
   const { mutate: toggleStatus, isPending: isStatusPending } = useMutation({
     mutationFn: async () => {
+      if (!isAppInstalled && repo.status === 'Paused') {
+          throw new Error("App must be installed to start analysis.");
+      }
       if (!repo.id) throw new Error('Repo ID missing');
       const newStatus = repo.status === 'Running' ? 'Paused' : 'Running';
       const result = await updateRepoStatus(repo.id, newStatus);
@@ -147,9 +152,13 @@ export function RepoCard({ repo }: { repo: Repository }) {
                 repo.status === 'Running'
                   ? 'bg-green-500 hover:bg-green-600'
                   : 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20'
-              }`}
+              } ${!isAppInstalled && repo.status === 'Paused' ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
+                if (!isAppInstalled && repo.status === 'Paused') {
+                    toast.error("Install the GitHub App to start analysis.");
+                    return;
+                }
                 if (!isStatusPending) toggleStatus();
               }}
             >
@@ -171,13 +180,22 @@ export function RepoCard({ repo }: { repo: Repository }) {
                 <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Regrettable Actions</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                        onSelect={() => !isStatusPending && toggleStatus()}
-                        disabled={isStatusPending}
-                    >
-                        {repo.status === 'Running' ? 'Pause Analysis' : 'Resume Analysis'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
+                                    <DropdownMenuItem
+                                        onSelect={() => {
+                                            if (!isAppInstalled && repo.status === 'Paused') {
+                                                toast.error("Install the GitHub App to start analysis.");
+                                                return;
+                                            }
+                                            if (!isStatusPending) toggleStatus();
+                                        }}
+                                        disabled={isStatusPending}
+                                        className={!isAppInstalled && repo.status === 'Paused' ? 'opacity-50' : ''}
+                                        >
+                                        {repo.status === 'Running' ? 'Pause Analysis' : 'Resume Analysis'}
+                                        {!isAppInstalled && repo.status === 'Paused' && (
+                                            <span className="ml-auto text-[10px] bg-yellow-500/10 text-yellow-600 px-1 rounded">Required</span>
+                                        )}
+                                        </DropdownMenuItem>                    <DropdownMenuItem 
                         onSelect={() => router.push(`/dashboard/repos/${repo.name}`)}
                         className="font-bold"
                     >

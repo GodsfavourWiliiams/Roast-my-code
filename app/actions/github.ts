@@ -299,35 +299,46 @@ export async function saveRepo(repo: GithubRepo) {
         // Ignore errors
       }
     }
-  } catch (e) {
-    console.error('Failed to detect framework:', e);
-  }
-
-  const { error: upsertError } = await supabase
-    .from('repositories')
-    .upsert({
-      user_id: user.id,
-      github_id: repo.id,
-      name: repo.name,
-      full_name: repo.full_name,
-      description: repo.description,
-      language: repo.language,
-      framework: framework,
-      url: repo.html_url,
-      default_branch: repo.default_branch || 'main',
-      private: repo.private,
-      status: 'Running',
-      open_prs_count: pending_murders,
-      updated_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (upsertError) {
-    console.error('Error saving repo:', upsertError);
-    return { error: upsertError.message };
-  }
-
+      } catch (e) {
+      console.error('Failed to detect framework:', e);
+    }
+  
+    // Fetch user settings for default status
+    const { data: settings } = await supabase
+      .from('user_settings')
+      .select('auto_run_new_repos, installation_id')
+      .eq('user_id', user.id)
+      .single();
+  
+    // Default status: Run if setting is true AND app is installed. Otherwise Pause.
+    const initialStatus =
+      settings?.auto_run_new_repos && settings?.installation_id
+        ? 'Running'
+        : 'Paused';
+  
+    const { error: upsertError } = await supabase
+      .from('repositories')
+      .upsert({
+        user_id: user.id,
+        github_id: repo.id,
+        name: repo.name,
+        full_name: repo.full_name,
+        description: repo.description,
+              language: repo.language,
+              framework: framework,
+              url: repo.html_url,
+              default_branch: repo.default_branch || 'main',
+              private: repo.private,        status: initialStatus,
+        open_prs_count: pending_murders,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+  
+    if (upsertError) {
+      console.error('Error saving repo:', upsertError);
+      return { error: upsertError.message };
+    }
   return { success: true };
 }
 

@@ -10,6 +10,8 @@ export interface UserSettings {
   model: string;
   notifications: boolean;
   webhook_enabled: boolean;
+  installation_id?: number | null;
+  auto_run_new_repos: boolean;
 }
 
 export async function getUserSettings(): Promise<{ settings: UserSettings | null; error: string | null }> {
@@ -37,7 +39,9 @@ export async function getUserSettings(): Promise<{ settings: UserSettings | null
         persona: 'toxic',
         model: 'gemini-flash-latest',
         notifications: true,
-        webhook_enabled: false
+        webhook_enabled: false,
+        installation_id: null,
+        auto_run_new_repos: true
       },
       error: null
     };

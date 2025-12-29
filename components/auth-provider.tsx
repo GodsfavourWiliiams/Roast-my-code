@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { User } from "@supabase/supabase-js"
+import { syncUserIdentity } from "@/app/actions/auth"
 
 interface AuthContextType {
   user: User | null
@@ -26,6 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (event, session) => {
         if (session) {
           setUser(session.user)
+          // Sync GitHub ID to DB for webhooks
+          syncUserIdentity().catch(err => console.error("Identity sync failed", err));
         } else {
           setUser(null)
         }
