@@ -9,6 +9,11 @@ export interface GithubRepo {
   forks_count: number;
   watchers_count: number;
   default_branch: string;
+  owner: {
+    login: string;
+    type: string;
+    avatar_url: string;
+  };
   private: boolean;
   updated_at: string;
 }
@@ -20,11 +25,11 @@ export interface Repository {
   description: string;
   language: string;
   framework?: string | null;
-  stars: string;
-  forks: string;
-  watchers: string;
+  stars?: string;
+  forks?: string;
+  watchers?: string;
   updated_at: string;
-  status: 'Running' | 'Paused';
+  status: 'Running' | 'Paused' | 'Idle';
   private: boolean;
   pending_murders: number;
 }
