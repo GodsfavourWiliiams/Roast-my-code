@@ -1,11 +1,9 @@
 'use server';
 
 import { google } from '@ai-sdk/google';
-import { streamText, generateText } from 'ai';
-import { createClient } from '@/lib/supabase/server';
+import { generateText } from 'ai';
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
-// Use Admin client for background tasks where user session isn't available (webhooks)
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -17,12 +15,11 @@ export async function processAutomatedRoast(params: {
   pr_number: number;
   pr_title: string;
   repo_full_name: string;
-  filename?: string; // Optional for PRs, we might roast multiple or the whole diff
   code: string;
+  was_truncated?: boolean;
 }) {
-  const { repo_id, user_id, pr_number, pr_title, code, filename } = params;
+  const { repo_id, user_id, pr_number, pr_title, code, was_truncated } = params;
 
-  // 1. Fetch User Persona
   const { data: settings } = await supabaseAdmin
     .from('user_settings')
     .select('persona')
@@ -34,35 +31,42 @@ export async function processAutomatedRoast(params: {
   let personaInstruction = "";
   switch (persona) {
     case 'passive':
-        personaInstruction = "You are a Passive Aggressive Senior Engineer. Don't be outwardly mean, but make backhanded compliments. Be subtle but stinging. If the code is good, begrudgingly admit it. ALWAYS provide a code snippet showing how you would have done it 'better'.";
+        personaInstruction = "You are a Passive Aggressive Senior Engineer. Be subtle but stinging. Always provide code suggestions. If the code is good, begrudgingly admit it.";
         break;
     case 'shakespearean':
-        personaInstruction = "You are William Shakespeare if he was a burned out developer. Roast the code using Old English, metaphors, and insults from his plays. Be dramatic. If the code is actually good, praise it like a sonnet. Regardless of quality, thee MUST provide a code example of the 'true path'.";
+        personaInstruction = "You are William Shakespeare if he was a burned out developer. Roast using Old English and play metaphors. Always provide code examples.";
         break;
     case 'honest':
-        personaInstruction = "You are a helpful, mentorship-focused Senior Engineer. Do NOT be toxic or mean. Instead, provide constructive, actionable feedback. Point out security flaws, performance issues, and bad practices kindly. Crucially, PROVIDE CODE EXAMPLES of how to refactor the code to be better. If the code is good, verify it and explain why.";
+        personaInstruction = "You are a helpful, mentorship-focused Senior Engineer. Provide constructive feedback and refactoring examples kindly.";
         break;
     case 'toxic':
     default:
-        personaInstruction = "You are a Senior Software Engineer who is burnt out, cynical, and brutally honest. You hate bad code. Be mean, be funny, but be technically correct. Don't just insult; explain WHY it's garbage. HOWEVER, if the code is actually good/perfect, give it a high score (8-9) but NEVER give a 10/10. ALWAYS provide a refactored code snippet showing how to fix the mess.";
+        personaInstruction = "You are a Senior Software Engineer who is burnt out, cynical, and brutally honest. You hate bad code. Be mean, funny, but technically correct. Max score is 9/10.";
         break;
   }
 
-  const systemPrompt = `
-    ${personaInstruction} 
+  const BT = "```";
+  const systemPrompt = `${personaInstruction} 
     
     Review the code in the PR titled '${pr_title}'.
+    ${was_truncated ? "NOTE: This diff was very large and has been truncated. Analyze what is visible." : ""}
     
-    CRITICAL: You MUST start your response with exactly this format:
-    Score: X/10
-    Violations: X
-    Critical Issues: X
+    CRITICAL: You MUST provide your metrics in a JSON block at the VERY END of your response.
+    The response should be Markdown feedback, followed by the JSON block.
+    
+    JSON format:
+    ${BT}json
+    {
+      "score": number,
+      "violations": number,
+      "critical_issues": number
+    }
+    ${BT}
     
     STRUCTURE YOUR FEEDBACK:
     1. Use a header "🚨 CRITICAL ISSUES" for severe problems.
     2. Use a header "⚠️ VIOLATIONS" for smaller issues.
-    3. ALWAYS end with a "🛠️ PROPOSED REFACTOR" section containing a complete, improved code block.
-  `;
+    3. ALWAYS end the text section with a "🛠️ PROPOSED REFACTOR" section.`;
 
   try {
     const { text } = await generateText({
@@ -71,30 +75,40 @@ export async function processAutomatedRoast(params: {
       prompt: `Review this code:\n\n${code}`,
     });
 
-    // Parse metrics
-    const scoreMatch = text.match(/Score:\s*(\d+)\/10/i);
-    const violationsMatch = text.match(/Violations:\s*(\d+)/i);
-    const criticalMatch = text.match(/Critical Issues:\s*(\d+)/i);
+    // Reliable Parsing
+    let score = null;
+    let violations = 0;
+    let critical = 0;
 
-    const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
-    const violations = violationsMatch ? parseInt(violationsMatch[1]) : 0;
-    const critical = criticalMatch ? parseInt(criticalMatch[1]) : 0;
+    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch) {
+        try {
+            const metrics = JSON.parse(jsonMatch[1]);
+            score = metrics.score;
+            violations = metrics.violations || 0;
+            critical = metrics.critical_issues || 0;
+        } catch (e) {
+            console.error("[RoastLogic] JSON Parse Failed", e);
+        }
+    }
 
-    // 2. Save to DB
+    // Clean up text by removing the JSON block for the UI
+    const cleanText = text.replace(/```json[\s\S]*?```/, "").trim();
+
     await supabaseAdmin.from('roasts').insert({
       user_id,
       repo_id,
       pr_number,
       pr_title,
-      roast_content: text,
+      roast_content: cleanText,
       roast_score: score,
       violations_count: violations,
       critical_issues_count: critical,
     });
 
-    return { text, score, violations, critical };
+    return { text: cleanText, score, violations, critical };
   } catch (error: unknown) {
-    console.error("[RoastLogic] Failed:", error);
+    console.error("[RoastLogic] Failed:", error instanceof Error ? error.message : error);
     throw error;
   }
 }

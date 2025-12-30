@@ -202,71 +202,124 @@ export async function POST(req: Request) {
 
       if (action === "opened" || action === "synchronize" || action === "reopened") {
         if (repo.status !== 'Running') {
-            console.log(`[GitHub/Webhook] Repo is Paused. Ignoring.`);
-            
-            // Send Notification (Only on OPEN, not every sync to avoid spam)
-            if (action === "opened") {
-                await supabaseAdmin.from('notifications').insert({
-                    user_id: repo.user_id,
-                    title: 'Roast Skipped',
-                    message: `A new PR (#${prNumber}) was opened in ${event.repository.full_name}, but the bot is Paused.`,
-                    type: 'info',
-                    link: `/dashboard/repos/${event.repository.name}`
-                });
-            }
-            
-            return NextResponse.json({ message: "Repo paused" });
+          console.log(`[GitHub/Webhook] Repo is Paused. Ignoring.`);
+
+          // Send Notification (Only on OPEN, not every sync to avoid spam)
+          if (action === 'opened') {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: repo.user_id,
+              title: 'Roast Skipped',
+              message: `A new PR (#${prNumber}) was opened in ${event.repository.full_name}, but the bot is Paused.`,
+              type: 'info',
+              link: `/dashboard/repos/${event.repository.name}`,
+            });
+          }
+
+          return NextResponse.json({ message: 'Repo paused' });
         }
 
         console.log(`[GitHub/Webhook] Triggering Roast for PR #${prNumber}...`);
-        
+
         // Get Installation ID for the user
         const { data: settings } = await supabaseAdmin
-            .from('user_settings')
-            .select('installation_id')
-            .eq('user_id', repo.user_id)
-            .single();
+          .from('user_settings')
+          .select('installation_id')
+          .eq('user_id', repo.user_id)
+          .single();
 
         if (!settings?.installation_id) {
-            console.error("[GitHub/Webhook] No installation found for user. Cannot roast.");
-            return NextResponse.json({ error: "No installation" });
+          console.error(
+            '[GitHub/Webhook] No installation found for user. Cannot roast.'
+          );
+          return NextResponse.json({ error: 'No installation' });
         }
 
+        const MAX_CHAR_LIMIT = 50000; // 50K characters limit (approx 12.5k tokens)
+
         try {
-            // 1. Get Octokit for this installation
-            const octokit = await app.getInstallationOctokit(settings.installation_id);
+          // 1. Get Octokit for this installation
+          const octokit = await app.getInstallationOctokit(
+            settings.installation_id
+          );
 
-            // 2. Fetch the PR Diff
-            const { data: diff } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
-                owner: event.repository.owner.login,
-                repo: event.repository.name,
-                pull_number: prNumber,
-                headers: {
-                    accept: 'application/vnd.github.v3.diff',
-                },
-            });
+                      // 2. Fetch the PR Diff
 
-            // 3. Process the Roast (AI + DB Save)
-            const roast = await processAutomatedRoast({
-                repo_id: repo.id,
-                user_id: repo.user_id,
-                pr_number: prNumber,
-                pr_title: event.pull_request.title,
-                repo_full_name: event.repository.full_name,
-                code: diff as unknown as string,
-            });
+                      const { data: rawDiff } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
 
-            // 4. Post Comment to GitHub
-            await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
-                owner: event.repository.owner.login,
-                repo: event.repository.name,
-                issue_number: prNumber,
-                body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
-            });
+                          owner: event.repository.owner.login,
 
-            console.log(`[GitHub/Webhook] Roast posted successfully for PR #${prNumber}`);
+                          repo: event.repository.name,
+
+                          pull_number: prNumber,
+
+                          headers: {
+
+                              accept: 'application/vnd.github.v3.diff',
+
+                          },
+
+                      });
+
+          
+
+                      const diff = rawDiff as unknown as string;
+
+                      const MAX_DIFF_SIZE = 100000; // 100k chars limit
+
+                      let processedCode = diff;
+
+                      let wasTruncated = false;
+
+          
+
+                      if (diff.length > MAX_DIFF_SIZE) {
+
+                          processedCode = diff.substring(0, MAX_DIFF_SIZE);
+
+                          wasTruncated = true;
+
+                          console.warn(`[GitHub/Webhook] PR #${prNumber} diff truncated from ${diff.length} to ${MAX_DIFF_SIZE} chars.`);
+
+                      }
+
+          
+
+                      // 3. Process the Roast (AI + DB Save)
+
+                      const roast = await processAutomatedRoast({
+
+                          repo_id: repo.id,
+
+                          user_id: repo.user_id,
+
+                          pr_number: prNumber,
+
+                          pr_title: event.pull_request.title,
+
+                          repo_full_name: event.repository.full_name,
+
+                          code: processedCode,
+
+                          was_truncated: wasTruncated,
+
+                      });
+
+          // 4. Post Comment to GitHub
+          await octokit.request(
+            'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
+            {
+              owner: event.repository.owner.login,
+              repo: event.repository.name,
+              issue_number: prNumber,
+              body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
+            }
+          );
+
+          console.log(
+            `[GitHub/Webhook] Roast posted successfully for PR #${prNumber}`
+          );
         } catch (e: unknown) {
-            console.error("[GitHub/Webhook] Roast execution failed:", e);
+          console.error('[GitHub/Webhook] Roast execution failed:', e);
         }
       }
     }
