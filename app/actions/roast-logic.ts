@@ -66,7 +66,8 @@ export async function processAutomatedRoast(params: {
     STRUCTURE YOUR FEEDBACK:
     1. Use a header "🚨 CRITICAL ISSUES" for severe problems.
     2. Use a header "⚠️ VIOLATIONS" for smaller issues.
-    3. ALWAYS end the text section with a "🛠️ PROPOSED REFACTOR" section.`;
+    3. REFACTORING: ONLY provide a "🛠️ PROPOSED REFACTOR" section if there are meaningful improvements to be made. 
+    4. PERFECT CODE: If the code is actually standard, clean, or perfect, skip the refactor. Instead, provide a short, funny, persona-appropriate acknowledgement with emojis (e.g., Toxic: shock/disbelief, Honest: pure satisfaction, Shakespearean: a heroic couplet).`;
 
   try {
     const { text } = await generateText({
