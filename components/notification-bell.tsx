@@ -52,8 +52,8 @@ export function NotificationBell() {
 
   // 3. Realtime Subscription
   useEffect(() => {
-    // Pre-load audio
-    const audio = new Audio('https://fsa.zobj.net/download/f0/ea/f0ea0cf66009edbc0bc0af96548d0772.mp3?download=1'); // Modern ping sound
+    // Pre-load audio from local public folder
+    const audio = new Audio('/notification.wav');
     audio.load();
 
     const playSound = () => {
@@ -67,7 +67,8 @@ export function NotificationBell() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         (payload) => {
-          console.log("[Notification] New alert:", payload.new);
+          const receivedAt = new Date().toISOString();
+          console.log(`[Client/Notification] [${receivedAt}] New alert received via Realtime:`, payload.new);
           playSound();
           toast(payload.new.title, {
             description: payload.new.message,
@@ -130,7 +131,7 @@ export function NotificationBell() {
                                     {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
+                            <p className="text-xs text-muted-foreground leading-relaxed">
                                 {n.message}
                             </p>
                             {n.link && (

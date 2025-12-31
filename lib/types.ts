@@ -29,7 +29,7 @@ export interface Repository {
   forks?: string;
   watchers?: string;
   updated_at: string;
-  status: 'Running' | 'Paused' | 'Idle';
+  status: 'Running' | 'Paused' | 'Idle' | 'Deleted';
   private: boolean;
   pending_murders: number;
 }

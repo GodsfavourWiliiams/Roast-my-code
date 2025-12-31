@@ -22,7 +22,7 @@ export interface RepoDetails {
   framework: string | null;
   url: string;
   private: boolean;
-  status: 'Running' | 'Paused' | 'Idle';
+  status: 'Running' | 'Paused' | 'Idle' | 'Deleted';
   updated_at: string;
   roasts: Roast[];
   stats: {
