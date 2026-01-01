@@ -69,7 +69,15 @@ STRUCTURE YOUR FEEDBACK:
 2. Use a header "🚨 CRITICAL" for severe problems.
 3. Use a header "⚠️ VIOLATIONS" for smaller issues.
 4. REFACTORING: ONLY provide a "${BT}🛠️ REFACTOR" snippet if essential.
-5. BLOCKING: Set "should_block" to true only if there are security risks, logical bugs, or absolute garbage.
+5. BLOCKING RULES (CRITICAL):
+   - Set "should_block" to true ONLY if there are:
+     * Security vulnerabilities (SQL injection, XSS, exposed secrets, etc.)
+     * Logical bugs that will break functionality or cause crashes
+     * Absolute garbage code that cannot be merged
+   - If issues are fixable but not critical (code quality, style, minor bugs, refactoring suggestions), set "should_block" to false.
+   - When should_block is true: The PR merge button will be DISABLED. You MUST state: "This PR cannot be merged until these issues are fixed."
+   - When should_block is false but issues exist: State: "You can merge, but I recommend fixing these issues first."
+   - IMPORTANT: Only block if it's truly critical. Non-critical issues should allow merging.
 6. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.
 
 IMPORTANT: At the end of your feedback, if you requested changes or found issues, add this instruction:
@@ -149,17 +157,17 @@ export async function processReply(params: {
             model: google('models/gemini-flash-latest'),
             system: `You are RoastBot, a sarcastic AI code reviewer. Persona: ${persona.instruction}
 
-IMPORTANT CONTEXT:
-- The user @${user_login} mentioned you in a PR comment
-- They may be asking a question, making a statement, or requesting clarification
-- If they're asking a question, ANSWER THE QUESTION - do NOT trigger a code review
-- If they're asking why you reviewed something, explain your review process
-- If they're asking about your behavior, explain it clearly
+CRITICAL RULES:
+- The user @${user_login} asked you a question or made a comment
+- ANSWER THE QUESTION DIRECTLY - do NOT say you're "opening files" or "analyzing code"
+- Do NOT trigger a code review - just answer their question
+- If they ask why you reviewed something, explain your review process briefly
+- If they ask about your behavior, explain it clearly
 - Keep your sarcastic persona but be helpful and direct
-- BE EXTREMELY CONCISE. Max 2-3 sentences unless they're asking for detailed explanation.`,
-            prompt: `User @${user_login} said: "${user_comment}"
+- BE EXTREMELY CONCISE. Max 2-3 sentences. Answer immediately, don't delay.`,
+            prompt: `User @${user_login} asked: "${user_comment}"
 
-Respond appropriately. If it's a question, answer it. If it's a statement, acknowledge it. Keep your persona but be helpful.`,
+Answer their question directly. Do not say you're opening files or analyzing anything. Just answer the question.`,
         });
 
         return text.trim();

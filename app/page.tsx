@@ -21,14 +21,7 @@ import { GithubLogoIcon } from '@phosphor-icons/react/dist/ssr';
 import { useAuth } from '@/components/auth-provider';
 import { CtaButton } from '@/components/cta-button';
 import { ROUTES } from '@/lib/routes';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { SignOutIcon } from '@phosphor-icons/react/dist/ssr';
+import { LandingHeader } from '@/components/landing-header';
 
 // Animation variants for smooth, professional feel
 const fadeUp = {
@@ -49,7 +42,7 @@ const staggerContainer = {
 };
 
 export default function LandingPage() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-slate-200 selection:bg-red-500/20 selection:text-red-200 font-sans">
@@ -60,72 +53,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-soft-light"></div>
       </div>
 
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#0A0A0A]/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-white">
-            <Flame className="w-5 h-5 text-red-500" fill="currentColor" />
-            <span className="font-semibold tracking-tight text-lg">
-              RoastBot
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
-            {/* <Link
-              href="#features"
-              className="hover:text-white transition-colors"
-            >
-              Features
-            </Link> */}
-            {/* <Link
-              href="/login"
-              className="hover:text-white transition-colors"
-            >
-              Get Started
-            </Link> */}
-          </div>
-
-          <div className="flex items-center gap-4">
-            {!isLoading &&
-              (user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="hidden sm:block outline-none">
-                      <Avatar className="size-9 border-2 border-white/10 hover:border-white/30 transition-colors cursor-pointer">
-                        <AvatarImage src={user.user_metadata?.avatar_url} />
-                        <AvatarFallback className="bg-red-500/20 text-red-400 text-xs font-bold">
-                          {user.user_metadata?.full_name?.substring(0, 2).toUpperCase() || 
-                           user.email?.substring(0, 2).toUpperCase() || 
-                           'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link href={ROUTES.DASHBOARD.HOME} className="cursor-pointer">
-                        Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive font-bold focus:bg-destructive/10 focus:text-destructive gap-2 cursor-pointer"
-                      onClick={logout}
-                    >
-                      <SignOutIcon size={16} weight="bold" />
-                      Log out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Link href="/login">
-                  <Button className="bg-white text-black hover:bg-slate-200 font-medium h-9 rounded-full px-5 text-sm">
-                    Log in
-                  </Button>
-                </Link>
-              ))}
-          </div>
-        </div>
-      </nav>
+      <LandingHeader />
 
       <main className="relative z-10 pt-32 pb-16">
         {/* Hero Section */}
