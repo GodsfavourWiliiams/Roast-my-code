@@ -128,7 +128,7 @@ export default function ReposPage() {
     },
     enabled: isOpen,
   });
-  console.log(savedReposData);
+
   // Mutation for saving a repository
   const { mutate: importRepo, isPending: isImporting } = useMutation({
     mutationFn: async (repo: GithubRepo) => {

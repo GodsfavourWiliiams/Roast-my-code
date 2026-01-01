@@ -56,10 +56,6 @@ export function ManualRoastDialog({
         // However, let's show a warning if empty.
         toast.warning('Roast saved, but stream output was empty.');
       } else {
-        console.log(
-          '[Client/Roast] Stream finished successfully. Final text length:',
-          result.length
-        );
         toast.success('Roast completed and saved.');
       }
       queryClient.invalidateQueries({ queryKey: ['repoDetails'] });
@@ -78,16 +74,9 @@ export function ManualRoastDialog({
     },
   });
 
-  useEffect(() => {
-    if (completion) {
-      console.log(
-        `[Client/Roast] Completion updated. Length: ${completion.length}`
-      );
-    }
-  }, [completion]);
+
 
   const handleFileSelect = async (path: string) => {
-    console.log(`[Client/Roast] File selected: ${path}`);
     setLoadingContent(true);
     const { content, error } = await fetchFileContent(repoName, path);
 
@@ -98,11 +87,6 @@ export function ManualRoastDialog({
       return;
     }
 
-    console.log(
-      `[Client/Roast] File content fetched (${
-        content?.length || 0
-      } chars). Triggering roast...`
-    );
     setFileContent(content);
     setSelectedFile(path);
     setStep('roast');
@@ -117,7 +101,6 @@ export function ManualRoastDialog({
           repoId: repoId,
         },
       });
-      console.log("[Client/Roast] 'complete' function executed.");
     } catch (e) {
       console.error("[Client/Roast] 'complete' execution failed:", e);
     }
