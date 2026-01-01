@@ -75,7 +75,6 @@ export function NotificationBell() {
                 audioRef.current?.pause();
                 setAudioUnlocked(true);
                 window.removeEventListener('click', unlockAudio);
-                console.log("[Notification] Audio unlocked.");
             }).catch(() => {});
         }
     };
@@ -87,7 +86,6 @@ export function NotificationBell() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         (payload) => {
-          console.log("[Notification] Incoming:", payload.new);
           playSound();
           toast(payload.new.title, {
             description: payload.new.message,

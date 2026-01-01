@@ -18,8 +18,9 @@ export async function processAutomatedRoast(params: {
   repo_full_name: string;
   code: string;
   was_truncated?: boolean;
+  isLatestCommitOnly?: boolean;
 }) {
-  const { repo_id, user_id, pr_number, pr_title, code, was_truncated } = params;
+  const { repo_id, user_id, pr_number, pr_title, code, was_truncated, isLatestCommitOnly } = params;
 
   const { data: settings } = await supabaseAdmin
     .from('user_settings')
@@ -30,10 +31,25 @@ export async function processAutomatedRoast(params: {
   const persona = getPersona(settings?.persona);
 
   const BT = "```";
+  const reviewContext = isLatestCommitOnly 
+    ? "You are reviewing ONLY the LATEST COMMIT that was pushed to this PR. The user tagged you to review their most recent changes after addressing your previous feedback."
+    : "You are reviewing a Pull Request. Review ALL commits and changes in this PR (the complete diff from base to head).";
+  
   const systemPrompt = `${persona.instruction.trim()}
 
-Review the code in the PR titled '${pr_title}'.
+${reviewContext}
 ${was_truncated ? "NOTE: This diff was very large and has been truncated. Analyze what is visible." : ""}
+
+CRITICAL RULES - THINK LIKE A SENIOR DEVELOPER:
+- Review ONLY the lines that were added/changed (marked with +) or removed (marked with -)
+- DO NOT review unchanged code or files that weren't modified in this commit/PR
+- Focus on what changed, not the entire codebase
+- If a file wasn't touched, ignore it completely - don't mention it
+- If the user addressed your previous feedback, acknowledge it but focus on NEW issues
+- If there are no actual code changes (only whitespace/metadata), you should have detected this earlier
+- Be contextually aware: if reviewing latest commit, the user likely fixed something you asked for
+
+${isLatestCommitOnly ? "IMPORTANT: This is the LATEST COMMIT ONLY. The user pushed this after your last review. Focus on whether they properly addressed your feedback and if there are any NEW issues introduced." : ""}
 
 CRITICAL: You MUST provide your metrics in a JSON block at the VERY END of your response.
 The response should be Markdown feedback, followed by the JSON block.
@@ -54,13 +70,20 @@ STRUCTURE YOUR FEEDBACK:
 3. Use a header "⚠️ VIOLATIONS" for smaller issues.
 4. REFACTORING: ONLY provide a "${BT}🛠️ REFACTOR" snippet if essential.
 5. BLOCKING: Set "should_block" to true only if there are security risks, logical bugs, or absolute garbage.
-6. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.`;
+6. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.
+
+IMPORTANT: At the end of your feedback, if you requested changes or found issues, add this instruction:
+"When you're done fixing these issues, reply with: done, ready, or review. If you have any questions about this feedback, just ask me."
+
+If the code is perfect and you're approving, you don't need to add this instruction.`;
 
   try {
     const { text } = await generateText({
       model: google('models/gemini-flash-latest'),
       system: systemPrompt,
-      prompt: `Review this code:\n\n${code}`,
+      prompt: isLatestCommitOnly 
+        ? `Review ONLY the changes in the latest commit (user tagged you to check their fixes):\n\n${code}`
+        : `Review ONLY the changes in this PR diff:\n\n${code}`,
     });
 
     // Reliable Parsing
@@ -124,8 +147,19 @@ export async function processReply(params: {
     try {
         const { text } = await generateText({
             model: google('models/gemini-flash-latest'),
-            system: `You are a bot named RoastBot. Persona instructions: ${persona.instruction}. A user named @${user_login} commented on your roast: "${user_comment}". Reply to them. BE EXTREMELY CONCISE. Max 2 sentences. Keep the persona.`,
-            prompt: `Reply to @${user_login}`,
+            system: `You are RoastBot, a sarcastic AI code reviewer. Persona: ${persona.instruction}
+
+IMPORTANT CONTEXT:
+- The user @${user_login} mentioned you in a PR comment
+- They may be asking a question, making a statement, or requesting clarification
+- If they're asking a question, ANSWER THE QUESTION - do NOT trigger a code review
+- If they're asking why you reviewed something, explain your review process
+- If they're asking about your behavior, explain it clearly
+- Keep your sarcastic persona but be helpful and direct
+- BE EXTREMELY CONCISE. Max 2-3 sentences unless they're asking for detailed explanation.`,
+            prompt: `User @${user_login} said: "${user_comment}"
+
+Respond appropriately. If it's a question, answer it. If it's a statement, acknowledge it. Keep your persona but be helpful.`,
         });
 
         return text.trim();

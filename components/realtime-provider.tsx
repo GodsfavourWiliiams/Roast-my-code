@@ -9,8 +9,6 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   useEffect(() => {
-    console.log('[Realtime] Starting aggressive global subscription...');
-
     // Function to trigger immediate re-fetch
     const forceRefresh = () => {
       // refetchQueries forces an immediate network call regardless of state
@@ -28,7 +26,6 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'repositories' },
         (payload) => {
-          console.log("[Realtime] Repository change detected:", payload.eventType, payload.new);
           forceRefresh();
         }
       )
@@ -36,12 +33,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'roasts' },
         (payload) => {
-          console.log("[Realtime] Roast change detected:", payload.eventType, payload.new);
           forceRefresh();
         }
       )
       .subscribe((status) => {
-          console.log("[Realtime] Subscription status:", status);
           if (status === 'CHANNEL_ERROR') {
               console.error("[Realtime] Failed to connect to Supabase Realtime. Ensure Realtime is enabled for these tables in the Supabase Dashboard.");
           }

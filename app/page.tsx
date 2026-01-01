@@ -19,6 +19,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { GithubLogoIcon } from '@phosphor-icons/react/dist/ssr';
 import { useAuth } from '@/components/auth-provider';
+import { CtaButton } from '@/components/cta-button';
 
 // Animation variants for smooth, professional feel
 const fadeUp = {
@@ -142,10 +143,26 @@ export default function LandingPage() {
               variants={fadeUp}
               className="flex flex-col sm:flex-row items-center gap-4"
             >
-              <Button className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105">
-                <GithubLogoIcon className="w-5 h-5" />
-                Connect Repository
-              </Button>
+              {isLoading ? (
+                <Button 
+                    disabled 
+                    className="h-12 rounded-full bg-red-600/50 text-white/50 px-10 font-medium text-base shadow-none cursor-not-allowed"
+                >
+                    Initializing...
+                </Button>
+              ) : user ? (
+                <CtaButton 
+                    icon={Terminal} 
+                    label="Go to Dashboard" 
+                    href="/dashboard" 
+                />
+              ) : (
+                <CtaButton 
+                    icon={GithubLogoIcon} 
+                    label="Connect Repository" 
+                    href="/login" 
+                />
+              )}
               <Button
                 variant="outline"
                 className="h-12 px-8 rounded-full border-white/10 text-white hover:bg-white/5 font-medium text-base"

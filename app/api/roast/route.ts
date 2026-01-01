@@ -8,7 +8,6 @@ export const maxDuration = 60; // Allow 60 seconds for generation
 export async function POST(req: Request) {
   try {
     const { code, filename, repoId } = await req.json();
-    console.log(`[API/Roast] Incoming request for file: ${filename}, repoId: ${repoId}`);
     
     const supabase = await createClient();
     
@@ -50,7 +49,9 @@ export async function POST(req: Request) {
     const BT = "```";
     const systemPrompt = `${persona.instruction.trim()}
 
-Review the code in the file '${filename}'.
+You are reviewing a single file for manual review. Review the entire file content provided below.
+
+NOTE: This is a manual file review (not a PR diff). You are reviewing the complete current state of the file.
 
 CRITICAL: You MUST provide your metrics in a JSON block at the VERY END of your response.
 The response should be Markdown feedback, followed by the JSON block.
@@ -77,10 +78,8 @@ STRUCTURE YOUR FEEDBACK:
     const result = streamText({
       model: google('models/gemini-flash-latest'),
       system: systemPrompt,
-      prompt: `Review this code:\n\n${code}`,
+      prompt: `Review the file '${filename}':\n\n${code}`,
       onFinish: async ({ text }) => {
-        console.log(`[API/Roast] Stream finished. Generated ${text.length} characters.`);
-        
         const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
         let score = null;
         let violations = 0;

@@ -48,9 +48,6 @@ export async function POST(req: Request) {
     const payload = await req.text();
     const signature = req.headers.get("x-hub-signature-256") || "";
     const eventName = req.headers.get("x-github-event");
-    const now = new Date().toISOString();
-    
-    console.log(`[GitHub/Webhook] [${now}] Incoming event: ${eventName}`);
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
@@ -118,9 +115,18 @@ async function handleIssueComment(app: App, supabase: SupabaseClient, event: Git
 
     const persona = getPersona(settings?.persona);
     const prNumber = event.issue.number;
-    const wantsRoast = commentBody.includes('ready') || commentBody.includes('fixed') || commentBody.includes('done') || commentBody.includes('roast') || commentBody.includes('review');
+    
+    // Simple keywords that trigger review (short messages only)
+    const reviewKeywords = ['ready', 'fixed', 'done', 'roast', 'review', 'check', 'look'];
+    const hasReviewKeyword = reviewKeywords.some(keyword => commentBody.includes(keyword));
+    
+    // If message is long (more than 50 chars), it's likely a question, not a review request
+    // Short messages with keywords = review request
+    // Long messages = question (even if they contain keywords)
+    const isShortMessage = commentBody.trim().length <= 50;
+    const isReviewRequest = isShortMessage && hasReviewKeyword;
 
-    if (wantsRoast) {
+    if (isReviewRequest) {
         const octokit = await app.getInstallationOctokit(event.installation!.id);
         
         // Parallel acknowledgement post + notif insert
@@ -140,8 +146,10 @@ async function handleIssueComment(app: App, supabase: SupabaseClient, event: Git
             })
         ]);
 
-        await triggerAutomatedRoast(app, supabase, event, repo, prNumber);
+        // When user tags @roastbot for review, review only the latest commit
+        await triggerAutomatedRoast(app, supabase, event, repo, prNumber, true);
     } else {
+        // It's a question or general comment - let AI respond conversationally
         const reply = await processReply({
             user_id: repo.user_id,
             repo_name: repo.full_name,
@@ -201,7 +209,8 @@ async function handlePullRequest(app: App, supabase: SupabaseClient, event: GitH
 
     if (["opened", "reopened"].includes(action)) {
         if (repo.status === 'Running') {
-            await triggerAutomatedRoast(app, supabase, event, repo, prNumber);
+            // For PR opens, review ALL commits in the PR (full diff)
+            await triggerAutomatedRoast(app, supabase, event, repo, prNumber, false);
         } else {
             await supabase.from('notifications').insert({
                 user_id: repo.user_id,
@@ -272,7 +281,8 @@ async function triggerAutomatedRoast(
     supabaseAdmin: SupabaseClient, 
     event: GitHubWebhookPayload, 
     repo: { id: number; user_id: string; status: string }, 
-    prNumber: number
+    prNumber: number,
+    reviewLatestCommitOnly: boolean = false
 ) {
     if (!event.repository) return;      
     const { data: settings } = await supabaseAdmin.from('user_settings').select('installation_id').eq('user_id', repo.user_id).single();
@@ -280,16 +290,81 @@ async function triggerAutomatedRoast(
 
     try {
       const octokit = await app.getInstallationOctokit(settings.installation_id);
-      const { data: rawDiff } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+      
+      let diff: string;
+      let was_truncated = false;
+      
+      if (reviewLatestCommitOnly) {
+        // Get the latest commit from the PR
+        const { data: prData } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+          owner: event.repository.owner.login,
+          repo: event.repository.name,
+          pull_number: prNumber,
+        });
+        
+        // Get commits for this PR
+        const { data: commits } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/commits', {
+          owner: event.repository.owner.login,
+          repo: event.repository.name,
+          pull_number: prNumber,
+          per_page: 1, // Get only the latest commit
+        });
+        
+        if (!commits || commits.length === 0) {
+          // No commits, respond that there are no changes
+          await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+            owner: event.repository.owner.login,
+            repo: event.repository.name,
+            issue_number: prNumber,
+            body: `## 💀 RoastBot Autopsy Report\n\n**No changes detected.**\n\nYou asked me to review, but there are no new commits since the last review. If you've made changes, make sure you've pushed them to this PR.\n\n---\n*Sent with attitude by RoastBot*`,
+          });
+          return;
+        }
+        
+        const latestCommit = commits[0];
+        // Get the diff for just this commit
+        const { data: commitData } = await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}', {
+          owner: event.repository.owner.login,
+          repo: event.repository.name,
+          ref: latestCommit.sha,
+          headers: { accept: 'application/vnd.github.v3.diff' },
+        });
+        
+        diff = commitData as unknown as string;
+        
+        // Check if diff has actual changes (not just metadata)
+        // Look for lines that start with + or - but not +++ or --- (which are file headers)
+        const diffLines = diff ? diff.split('\n') : [];
+        const hasActualChanges = diffLines.some(line => {
+          const trimmed = line.trim();
+          return (trimmed.startsWith('+') && !trimmed.startsWith('+++')) || 
+                 (trimmed.startsWith('-') && !trimmed.startsWith('---'));
+        });
+        
+        if (!hasActualChanges || !diff || diff.trim().length === 0) {
+          // No actual code changes detected
+          await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+            owner: event.repository.owner.login,
+            repo: event.repository.name,
+            issue_number: prNumber,
+            body: `## 💀 RoastBot Autopsy Report\n\n**No code changes detected in the latest commit.**\n\nI checked commit \`${latestCommit.sha.substring(0, 7)}\` and found no actual code modifications. If you requested changes based on my previous review, make sure you've actually modified the code, not just committed empty changes or metadata.\n\n---\n*Sent with attitude by RoastBot*`,
+          });
+          return;
+        }
+      } else {
+        // Get full PR diff (for automatic reviews on PR open)
+        const { data: rawDiff } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
           owner: event.repository.owner.login,
           repo: event.repository.name,
           pull_number: prNumber,
           headers: { accept: 'application/vnd.github.v3.diff' },
-      });
+        });
+        diff = rawDiff as unknown as string;
+      }
 
-      const diff = rawDiff as unknown as string;
       const MAX_DIFF_SIZE = 100000;
       const processedCode = diff.length > MAX_DIFF_SIZE ? diff.substring(0, MAX_DIFF_SIZE) : diff;
+      was_truncated = diff.length > MAX_DIFF_SIZE;
 
       const roast = await processAutomatedRoast({
           repo_id: repo.id,
@@ -298,7 +373,8 @@ async function triggerAutomatedRoast(
           pr_title: event.pull_request?.title || event.issue?.title || "PR",
           repo_full_name: event.repository.full_name,
           code: processedCode,
-          was_truncated: diff.length > MAX_DIFF_SIZE,
+          was_truncated,
+          isLatestCommitOnly: reviewLatestCommitOnly,
       });
 
       const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';

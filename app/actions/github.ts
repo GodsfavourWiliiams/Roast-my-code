@@ -3,36 +3,32 @@
 import { createClient } from '@/lib/supabase/server';
 import { GithubRepo } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
+import {
+  getValidGitHubSession,
+  fetchGitHubAPI,
+} from '@/lib/auth/session-utils';
 
 export async function fetchGithubRepos({ search = '' }: { search?: string } = {}): Promise<{ repos: GithubRepo[]; error: string | null }> {
   const supabase = await createClient();
   
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // Use getUser() which automatically refreshes expired sessions
+  const session = await getValidGitHubSession(supabase);
 
   if (!session) {
     return { error: 'Not authenticated', repos: [] };
   }
 
-  const providerToken = session.provider_token;
-
-  if (!providerToken) {
-    console.error("No provider token found in session");
+  if (!session.provider_token) {
     return { error: 'No GitHub token found. Please sign out and sign in again.', repos: [] };
   }
 
   try {
     const PER_PAGE = 20;
-    let url = `https://api.github.com/user/repos?sort=updated&type=all&per_page=${PER_PAGE}`;
+    // Use affiliation to exclude 'collaborator' repos (repos the user was "added to" but doesn't own/belong to org)
+    let url = `https://api.github.com/user/repos?sort=updated&affiliation=owner,organization_member&per_page=${PER_PAGE}`;
 
     if (search) {
-      const userResponse = await fetch('https://api.github.com/user', {
-        headers: {
-            Authorization: `Bearer ${providerToken}`,
-            Accept: 'application/vnd.github.v3+json',
-        }
-      });
+      const userResponse = await fetchGitHubAPI(supabase, 'https://api.github.com/user');
       
       if (userResponse.ok) {
         const userData = await userResponse.json();
@@ -41,12 +37,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
       }
     }
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${providerToken}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-    });
+    const response = await fetchGitHubAPI(supabase, url);
 
     if (!response.ok) {
       throw new Error(`GitHub API error: ${response.statusText}`);
@@ -66,9 +57,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
 export async function saveRepo(repo: GithubRepo) {
   const supabase = await createClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getValidGitHubSession(supabase);
   if (!session) return { error: 'Not authenticated' };
   const user = session.user;
 
