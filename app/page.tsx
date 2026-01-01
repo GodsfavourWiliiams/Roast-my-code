@@ -38,6 +38,24 @@ const staggerContainer = {
   },
 };
 
+interface CtaButtonProps extends React.ComponentProps<typeof Button> {
+    icon?: React.ElementType;
+    label: string;
+    href: string;
+}
+
+const CtaButton = ({ icon: Icon, label, href, ...props }: CtaButtonProps) => (
+    <Link href={href}>
+        <Button 
+            className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105"
+            {...props}
+        >
+            {Icon && <Icon className="w-5 h-5 mr-2" />}
+            {label}
+        </Button>
+    </Link>
+);
+
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
 
@@ -142,20 +160,25 @@ export default function LandingPage() {
               variants={fadeUp}
               className="flex flex-col sm:flex-row items-center gap-4"
             >
-              {!isLoading && user ? (
-                <Link href="/dashboard">
-                  <Button className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105">
-                    <Terminal className="w-5 h-5 mr-2" />
-                    Go to Dashboard
-                  </Button>
-                </Link>
+              {isLoading ? (
+                <Button 
+                    disabled 
+                    className="h-12 rounded-full bg-red-600/50 text-white/50 px-10 font-medium text-base shadow-none cursor-not-allowed"
+                >
+                    Initializing...
+                </Button>
+              ) : user ? (
+                <CtaButton 
+                    icon={Terminal} 
+                    label="Go to Dashboard" 
+                    href="/dashboard" 
+                />
               ) : (
-                <Link href="/login">
-                  <Button className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105">
-                    <GithubLogoIcon className="w-5 h-5 mr-2" />
-                    Connect Repository
-                  </Button>
-                </Link>
+                <CtaButton 
+                    icon={GithubLogoIcon} 
+                    label="Connect Repository" 
+                    href="/login" 
+                />
               )}
               <Button
                 variant="outline"
