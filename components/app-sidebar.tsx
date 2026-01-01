@@ -5,8 +5,9 @@ import {
   GithubLogoIcon,
   GearIcon,
   SignOutIcon,
+  LightningIcon,
 } from '@phosphor-icons/react/dist/ssr';
-import { Flame } from 'lucide-react';
+import { ChartBar, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -43,18 +44,18 @@ const items = [
     icon: GithubLogoIcon,
     tooltip: "Repositories you've abandoned",
   },
-  // {
-  //   title: 'Brutal History',
-  //   url: '/dashboard/roasts',
-  //   icon: Lightning,
-  //   tooltip: 'Log of past insults',
-  // },
-  // {
-  //   title: 'Pain Analytics',
-  //   url: '/dashboard/analytics',
-  //   icon: ChartBar,
-  //   tooltip: 'Charts showing your decline',
-  // },
+  {
+    title: 'Brutal History',
+    url: '/dashboard/roasts',
+    icon: LightningIcon,
+    tooltip: 'Log of past insults',
+  },
+  {
+    title: 'Pain Analytics',
+    url: '/dashboard/analytics',
+    icon: ChartBar,
+    tooltip: 'Charts showing your decline',
+  },
   {
     title: 'Compliance',
     url: '/dashboard/settings',

@@ -59,15 +59,18 @@ export async function processAutomatedRoast(params: {
     {
       "score": number,
       "violations": number,
-      "critical_issues": number
+      "critical_issues": number,
+      "should_block": boolean
     }
     ${BT}
     
     STRUCTURE YOUR FEEDBACK:
-    1. Use a header "🚨 CRITICAL ISSUES" for severe problems.
-    2. Use a header "⚠️ VIOLATIONS" for smaller issues.
-    3. REFACTORING: ONLY provide a "🛠️ PROPOSED REFACTOR" section if there are meaningful improvements to be made. 
-    4. PERFECT CODE: If the code is actually standard, clean, or perfect, skip the refactor. Instead, provide a short, funny, persona-appropriate acknowledgement with emojis (e.g., Toxic: shock/disbelief, Honest: pure satisfaction, Shakespearean: a heroic couplet).`;
+    1. BE EXTREMELY CONCISE. Use maximum 2-3 bullet points. No fluff.
+    2. Use a header "🚨 CRITICAL" for severe problems.
+    3. Use a header "⚠️ VIOLATIONS" for smaller issues.
+    4. REFACTORING: ONLY provide a "🛠️ REFACTOR" snippet if essential.
+    5. BLOCKING: Set "should_block" to true only if there are security risks, logical bugs, or absolute garbage.
+    6. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.`;
 
   try {
     const { text } = await generateText({
@@ -80,6 +83,7 @@ export async function processAutomatedRoast(params: {
     let score = null;
     let violations = 0;
     let critical = 0;
+    let should_block = false;
 
     const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
     if (jsonMatch) {
@@ -88,6 +92,7 @@ export async function processAutomatedRoast(params: {
             score = metrics.score;
             violations = metrics.violations || 0;
             critical = metrics.critical_issues || 0;
+            should_block = metrics.should_block || false;
         } catch (e) {
             console.error("[RoastLogic] JSON Parse Failed", e);
         }
@@ -107,9 +112,49 @@ export async function processAutomatedRoast(params: {
       critical_issues_count: critical,
     });
 
-    return { text: cleanText, score, violations, critical };
+    return { text: cleanText, score, violations, critical, should_block };
   } catch (error: unknown) {
     console.error("[RoastLogic] Failed:", error instanceof Error ? error.message : error);
     throw error;
   }
+}
+
+export async function processReply(params: {
+    user_id: string;
+    repo_name: string;
+    pr_number: number;
+    user_comment: string;
+    user_login: string;
+}) {
+    const { user_id, user_comment, user_login } = params;
+
+    // Fetch Persona
+    const { data: settings } = await supabaseAdmin
+        .from('user_settings')
+        .select('persona')
+        .eq('user_id', user_id)
+        .single();
+
+    const persona = settings?.persona || 'toxic';
+    let instruction = "";
+    
+    switch (persona) {
+        case 'passive': instruction = "Passive-aggressive. Give a backhanded compliment."; break;
+        case 'shakespearean': instruction = "Old English poetic insults."; break;
+        case 'honest': instruction = "Helpful and professional mentor."; break;
+        default: instruction = "Toxic, mean, and arrogant Senior Dev."; break;
+    }
+
+    try {
+        const { text } = await generateText({
+            model: google('models/gemini-flash-latest'),
+            system: `You are a bot named RoastBot. Persona: ${instruction}. A user named @${user_login} commented on your roast: "${user_comment}". Reply to them. BE EXTREMELY CONCISE. Max 2 sentences. Keep the persona.`,
+            prompt: `Reply to @${user_login}`,
+        });
+
+        return text.trim();
+    } catch (e) {
+        console.error("[ReplyLogic] Failed:", e);
+        return "I'm too busy looking at your bad code to reply to this.";
+    }
 }

@@ -9,34 +9,44 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   useEffect(() => {
-    console.log("[Realtime] Starting global subscription...");
+    console.log('[Realtime] Starting aggressive global subscription...');
+
+    // Function to trigger immediate re-fetch
+    const forceRefresh = () => {
+      // refetchQueries forces an immediate network call regardless of state
+      queryClient.refetchQueries({ queryKey: ['savedRepos'], type: 'active' });
+      queryClient.refetchQueries({
+        queryKey: ['dashboardStats'],
+        type: 'active',
+      });
+      queryClient.refetchQueries({ queryKey: ['repoDetails'], type: 'active' });
+    };
 
     const channel = supabase
       .channel('global-updates')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'repositories' },
-        (payload) => {
-          console.log("[Realtime] Repository change detected:", payload.eventType);
-          queryClient.invalidateQueries({ queryKey: ['savedRepos'] });
-          queryClient.invalidateQueries({ queryKey: ['repoDetails'] });
-          queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        () => {
+          console.log(
+            '[Realtime] Repository change detected. Forcing refresh...'
+          );
+          forceRefresh();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'roasts' },
-        (payload) => {
-          console.log("[Realtime] Roast change detected:", payload.eventType);
-          queryClient.invalidateQueries({ queryKey: ['recentRoasts'] });
-          queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-          queryClient.invalidateQueries({ queryKey: ['repoDetails'] });
+        () => {
+          console.log('[Realtime] Roast change detected. Forcing refresh...');
+          forceRefresh();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Realtime] Subscription status:', status);
+      });
 
     return () => {
-      console.log("[Realtime] Cleaning up global subscription...");
       supabase.removeChannel(channel);
     };
   }, [supabase, queryClient]);

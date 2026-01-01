@@ -6,6 +6,7 @@ export interface DashboardStats {
   egos_bruised: number;
   total_violations: number;
   active_repos: number;
+  hostages: number;
 }
 
 export interface RecentRoast {
@@ -17,126 +18,80 @@ export interface RecentRoast {
   date: string;
 }
 
-export async function fetchDashboardStats(): Promise<{
-  stats: DashboardStats;
-  error: string | null;
-}> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return {
-      stats: { egos_bruised: 0, total_violations: 0, active_repos: 0 },
-      error: 'Not authenticated',
-    };
-  }
-
-  // 1. egos_bruised = Total Roasts Count
-  const { count: egos_bruised, error: countError } = await supabase
-    .from('roasts')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id);
-
-  if (countError) {
-    return {
-      stats: { egos_bruised: 0, total_violations: 0, active_repos: 0 },
-      error: countError.message,
-    };
-  }
-
-  // 2. total_violations (Sum of violations_count)
-  const { data: roasts } = await supabase
-    .from('roasts')
-    .select('violations_count')
-    .eq('user_id', user.id);
-
-  const total_violations =
-    roasts?.reduce((acc, curr) => acc + (curr.violations_count || 0), 0) || 0;
-
-  // 3. active_repos = Number of Active Repos
-  const { count: active_repos } = await supabase
-    .from('repositories')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('status', 'Running');
-
-  return {
-    stats: {
-      egos_bruised: egos_bruised || 0,
-      total_violations: total_violations,
-      active_repos: active_repos || 0,
-    },
-    error: null,
-  };
+export interface ScoreTrend {
+  date: string;
+  score: number;
 }
 
-export async function fetchRecentRoasts(): Promise<{
-  roasts: RecentRoast[];
+export interface RepoCrime {
+  name: string;
+  violations: number;
+  critical: number;
+}
+
+export async function getDashboardData(): Promise<{
+  stats: DashboardStats;
+  recent_roasts: RecentRoast[];
+  score_trend: ScoreTrend[];
+  repo_crimes: RepoCrime[];
   error: string | null;
 }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { roasts: [], error: 'Not authenticated' };
-  }
+  if (!user) return { stats: {} as any, recent_roasts: [], score_trend: [], repo_crimes: [], error: 'Not authenticated' };
 
-  const { data, error } = await supabase
-    .from('roasts')
-    .select(
-      `
-      id,
-      pr_title,
-      pr_number,
-      roast_content,
-      roast_score,
-      created_at,
-      repositories (
-        name
-      )
-    `
-    )
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(5);
+  try {
+    // 1. Fetch Overview Stats
+    const { count: egos_bruised } = await supabase.from('roasts').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    const { count: hostages } = await supabase.from('repositories').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    const { count: active_repos } = await supabase.from('repositories').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'Running');
+    
+    const { data: violations_data } = await supabase.from('roasts').select('violations_count').eq('user_id', user.id);
+    const total_violations = violations_data?.reduce((acc, curr) => acc + (curr.violations_count || 0), 0) || 0;
 
-  if (error) {
-    return { roasts: [], error: error.message };
-  }
+    // 2. Fetch Recent Roasts
+    const { data: recent_data } = await supabase
+      .from('roasts')
+      .select(`id, pr_title, pr_number, roast_content, roast_score, created_at, repositories ( name )`)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5);
 
-  type RoastQueryResult = {
-    id: number;
-    pr_title: string | null;
-    pr_number: number | null;
-    roast_content: string | null;
-    roast_score: number | null;
-    created_at: string;
-    repositories: { name: string } | { name: string }[] | null;
-  };
+    const recent_roasts: RecentRoast[] = (recent_data || []).map((item: any) => ({
+      id: item.id,
+      title: item.pr_title || (item.pr_number ? `PR #${item.pr_number}` : 'Manual Roast'),
+      repo_name: item.repositories?.name || 'Unknown Repo',
+      roast_score: item.roast_score || 0,
+      description: item.roast_content,
+      date: item.created_at,
+    }));
 
-  const roasts: RecentRoast[] = (data as unknown as RoastQueryResult[]).map((item) => {
-    const repo = Array.isArray(item.repositories)
-      ? item.repositories[0]
-      : item.repositories;
+    // 3. Fetch Analytics Data
+    const { data: trend_data } = await supabase.from('roasts').select('created_at, roast_score').eq('user_id', user.id).order('created_at', { ascending: true });
+    const score_trend: ScoreTrend[] = (trend_data || []).map(r => ({
+      date: new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      score: r.roast_score || 0
+    }));
+
+    const { data: crimes_data } = await supabase.from('roasts').select(`violations_count, critical_issues_count, repositories ( name )`).eq('user_id', user.id);
+    const repo_map: Record<string, RepoCrime> = {};
+    (crimes_data || []).forEach((item: any) => {
+      const repoName = item.repositories?.name || 'Unknown';
+      if (!repo_map[repoName]) repo_map[repoName] = { name: repoName, violations: 0, critical: 0 };
+      repo_map[repoName].violations += (item.violations_count || 0);
+      repo_map[repoName].critical += (item.critical_issues_count || 0);
+    });
 
     return {
-      id: item.id,
-      title:
-        item.pr_title ||
-        (item.pr_number ? `PR #${item.pr_number}` : 'Manual Roast'),
-      repo_name: repo?.name || 'Unknown Repo',
-      roast_score: item.roast_score || 0,
-      description: item.roast_content || '',
-      date: item.created_at,
+      stats: { egos_bruised: egos_bruised || 0, total_violations, active_repos: active_repos || 0, hostages: hostages || 0 },
+      recent_roasts,
+      score_trend,
+      repo_crimes: Object.values(repo_map),
+      error: null
     };
-  });
-
-  return {
-    roasts,
-    error: null,
-  };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    return { stats: {} as any, recent_roasts: [], score_trend: [], repo_crimes: [], error: message };
+  }
 }
