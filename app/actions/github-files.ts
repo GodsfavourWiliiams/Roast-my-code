@@ -1,7 +1,10 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getValidGitHubSession } from '@/lib/auth/session-utils';
+import {
+  getValidGitHubSession,
+  fetchGitHubAPI,
+} from '@/lib/auth/session-utils';
 
 export interface FileNode {
   name: string;
@@ -23,8 +26,7 @@ export async function fetchRepoContents(
     return { data: null, error: 'Not authenticated' };
   }
 
-  let providerToken = session.provider_token;
-  if (!providerToken) {
+  if (!session.provider_token) {
     return {
       data: null,
       error: 'No GitHub token found. Please sign out and sign in again.',
@@ -36,45 +38,10 @@ export async function fetchRepoContents(
 
     // Use OAuth token (always available when logged in)
     // This works for all users, including new signups who don't have the app installed yet
-    let response = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-      {
-        headers: {
-          Authorization: `Bearer ${providerToken}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-      }
+    const response = await fetchGitHubAPI(
+      supabase,
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
     );
-
-    // If token expired, try refreshing session and retry once
-    if (response.status === 401 || response.status === 403) {
-      console.log(
-        '[fetchRepoContents] Token expired, attempting to refresh session...'
-      );
-      const {
-        data: { session: refreshedSession },
-        error: refreshError,
-      } = await supabase.auth.refreshSession();
-
-      if (refreshError) {
-        console.error(
-          '[fetchRepoContents] Failed to refresh session:',
-          refreshError
-        );
-      } else if (refreshedSession?.provider_token) {
-        providerToken = refreshedSession.provider_token;
-        // Retry the request with refreshed token
-        response = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-          {
-            headers: {
-              Authorization: `Bearer ${providerToken}`,
-              Accept: 'application/vnd.github.v3+json',
-            },
-          }
-        );
-      }
-    }
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
@@ -134,8 +101,7 @@ export async function fetchFileContent(
     return { content: null, error: 'Not authenticated' };
   }
 
-  let providerToken = session.provider_token;
-  if (!providerToken) {
+  if (!session.provider_token) {
     return {
       content: null,
       error: 'No GitHub token found. Please sign out and sign in again.',
@@ -147,45 +113,10 @@ export async function fetchFileContent(
 
     // Use OAuth token (always available when logged in)
     // This works for all users, including new signups who don't have the app installed yet
-    let response = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-      {
-        headers: {
-          Authorization: `Bearer ${providerToken}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-      }
+    const response = await fetchGitHubAPI(
+      supabase,
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
     );
-
-    // If token expired, try refreshing session and retry once
-    if (response.status === 401 || response.status === 403) {
-      console.log(
-        '[fetchFileContent] Token expired, attempting to refresh session...'
-      );
-      const {
-        data: { session: refreshedSession },
-        error: refreshError,
-      } = await supabase.auth.refreshSession();
-
-      if (refreshError) {
-        console.error(
-          '[fetchFileContent] Failed to refresh session:',
-          refreshError
-        );
-      } else if (refreshedSession?.provider_token) {
-        providerToken = refreshedSession.provider_token;
-        // Retry the request with refreshed token
-        response = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-          {
-            headers: {
-              Authorization: `Bearer ${providerToken}`,
-              Accept: 'application/vnd.github.v3+json',
-            },
-          }
-        );
-      }
-    }
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {

@@ -50,3 +50,58 @@ export async function getValidGitHubSession(
 
   return session;
 }
+
+/**
+ * Makes a GitHub API request with automatic token refresh and retry.
+ * Handles 401/403 errors by refreshing the session and retrying once.
+ *
+ * @param supabase - The Supabase client instance
+ * @param url - The GitHub API URL
+ * @param options - Optional fetch options
+ * @returns The Response object
+ */
+export async function fetchGitHubAPI(
+  supabase: SupabaseClient,
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  // Get initial session
+  const session = await getValidGitHubSession(supabase);
+  if (!session?.provider_token) {
+    throw new Error('No valid GitHub token available');
+  }
+
+  // Make initial request
+  let response = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${session.provider_token}`,
+      Accept: 'application/vnd.github.v3+json',
+      ...options.headers,
+    },
+  });
+
+  // If token expired, refresh and retry once
+  if (response.status === 401 || response.status === 403) {
+    const {
+      data: { session: refreshedSession },
+      error: refreshError,
+    } = await supabase.auth.refreshSession();
+
+    if (refreshError || !refreshedSession?.provider_token) {
+      return response; // Return original error response
+    }
+
+    // Retry with refreshed token
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${refreshedSession.provider_token}`,
+        Accept: 'application/vnd.github.v3+json',
+        ...options.headers,
+      },
+    });
+  }
+
+  return response;
+}

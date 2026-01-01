@@ -3,7 +3,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { GithubRepo } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getValidGitHubSession } from '@/lib/auth/session-utils';
+import {
+  getValidGitHubSession,
+  fetchGitHubAPI,
+} from '@/lib/auth/session-utils';
 
 export async function fetchGithubRepos({ search = '' }: { search?: string } = {}): Promise<{ repos: GithubRepo[]; error: string | null }> {
   const supabase = await createClient();
@@ -15,9 +18,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
     return { error: 'Not authenticated', repos: [] };
   }
 
-  let providerToken = session.provider_token;
-
-  if (!providerToken) {
+  if (!session.provider_token) {
     return { error: 'No GitHub token found. Please sign out and sign in again.', repos: [] };
   }
 
@@ -27,26 +28,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
     let url = `https://api.github.com/user/repos?sort=updated&affiliation=owner,organization_member&per_page=${PER_PAGE}`;
 
     if (search) {
-      let userResponse = await fetch('https://api.github.com/user', {
-        headers: {
-            Authorization: `Bearer ${providerToken}`,
-            Accept: 'application/vnd.github.v3+json',
-        }
-      });
-      
-      // If token expired, try refreshing session and retry
-      if (userResponse.status === 401 || userResponse.status === 403) {
-        const refreshedSession = await getValidGitHubSession(supabase);
-        if (refreshedSession?.provider_token) {
-          providerToken = refreshedSession.provider_token;
-          userResponse = await fetch('https://api.github.com/user', {
-            headers: {
-                Authorization: `Bearer ${providerToken}`,
-                Accept: 'application/vnd.github.v3+json',
-            }
-          });
-        }
-      }
+      const userResponse = await fetchGitHubAPI(supabase, 'https://api.github.com/user');
       
       if (userResponse.ok) {
         const userData = await userResponse.json();
@@ -55,26 +37,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
       }
     }
 
-    let response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${providerToken}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-    });
-
-    // If token expired, try refreshing session and retry
-    if (response.status === 401 || response.status === 403) {
-      const refreshedSession = await getValidGitHubSession(supabase);
-      if (refreshedSession?.provider_token) {
-        providerToken = refreshedSession.provider_token;
-        response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${providerToken}`,
-            Accept: 'application/vnd.github.v3+json',
-          },
-        });
-      }
-    }
+    const response = await fetchGitHubAPI(supabase, url);
 
     if (!response.ok) {
       throw new Error(`GitHub API error: ${response.statusText}`);
