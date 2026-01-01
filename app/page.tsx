@@ -20,6 +20,15 @@ import Link from 'next/link';
 import { GithubLogoIcon } from '@phosphor-icons/react/dist/ssr';
 import { useAuth } from '@/components/auth-provider';
 import { CtaButton } from '@/components/cta-button';
+import { ROUTES } from '@/lib/routes';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { SignOutIcon } from '@phosphor-icons/react/dist/ssr';
 
 // Animation variants for smooth, professional feel
 const fadeUp = {
@@ -40,7 +49,7 @@ const staggerContainer = {
 };
 
 export default function LandingPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-slate-200 selection:bg-red-500/20 selection:text-red-200 font-sans">
@@ -62,35 +71,51 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
-            <Link
+            {/* <Link
               href="#features"
               className="hover:text-white transition-colors"
             >
               Features
-            </Link>
-            <Link
-              href="#integration"
+            </Link> */}
+            {/* <Link
+              href="/login"
               className="hover:text-white transition-colors"
             >
-              Integration
-            </Link>
-            <Link
-              href="#pricing"
-              className="hover:text-white transition-colors"
-            >
-              Pricing
-            </Link>
+              Get Started
+            </Link> */}
           </div>
 
           <div className="flex items-center gap-4">
             {!isLoading &&
               (user ? (
-                <Link
-                  href="/dashboard"
-                  className="text-sm font-medium text-slate-400 hover:text-white hidden sm:block"
-                >
-                  Dashboard
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="hidden sm:block outline-none">
+                      <Avatar className="size-9 border-2 border-white/10 hover:border-white/30 transition-colors cursor-pointer">
+                        <AvatarImage src={user.user_metadata?.avatar_url} />
+                        <AvatarFallback className="bg-red-500/20 text-red-400 text-xs font-bold">
+                          {user.user_metadata?.full_name?.substring(0, 2).toUpperCase() || 
+                           user.email?.substring(0, 2).toUpperCase() || 
+                           'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href={ROUTES.DASHBOARD.HOME} className="cursor-pointer">
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive font-bold focus:bg-destructive/10 focus:text-destructive gap-2 cursor-pointer"
+                      onClick={logout}
+                    >
+                      <SignOutIcon size={16} weight="bold" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <Link href="/login">
                   <Button className="bg-white text-black hover:bg-slate-200 font-medium h-9 rounded-full px-5 text-sm">
@@ -144,31 +169,33 @@ export default function LandingPage() {
               className="flex flex-col sm:flex-row items-center gap-4"
             >
               {isLoading ? (
-                <Button 
-                    disabled 
-                    className="h-12 rounded-full bg-red-600/50 text-white/50 px-10 font-medium text-base shadow-none cursor-not-allowed"
+                <Button
+                  disabled
+                  className="h-12 rounded-full bg-red-600/50 text-white/50 px-10 font-medium text-base shadow-none cursor-not-allowed"
                 >
-                    Initializing...
+                  Initializing...
                 </Button>
               ) : user ? (
-                <CtaButton 
-                    icon={Terminal} 
-                    label="Go to Dashboard" 
-                    href="/dashboard" 
+                <CtaButton
+                  icon={Terminal}
+                  label="Go to Dashboard"
+                  href={ROUTES.DASHBOARD.HOME}
                 />
               ) : (
-                <CtaButton 
-                    icon={GithubLogoIcon} 
-                    label="Connect Repository" 
-                    href="/login" 
+                <CtaButton
+                  icon={GithubLogoIcon}
+                  label="Connect Repository"
+                  href={ROUTES.LOGIN}
                 />
               )}
-              <Button
-                variant="outline"
-                className="h-12 px-8 rounded-full border-white/10 text-white hover:bg-white/5 font-medium text-base"
-              >
-                View Live Demo
-              </Button>
+              <Link href="#features">
+                <Button
+                  variant="outline"
+                  className="h-12 px-8 rounded-full border-white/10 text-white hover:bg-white/5 font-medium text-base"
+                >
+                  View Live Demo
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
 
@@ -455,7 +482,7 @@ export default function LandingPage() {
                 <ul className="space-y-2 text-sm text-foreground">
                   <li>
                     <Link
-                      href="#"
+                      href="#features"
                       className="hover:text-red-400 transition-colors"
                     >
                       Features
@@ -463,18 +490,18 @@ export default function LandingPage() {
                   </li>
                   <li>
                     <Link
-                      href="#"
+                      href="/login"
                       className="hover:text-red-400 transition-colors"
                     >
-                      Integrations
+                      Get Started
                     </Link>
                   </li>
                   <li>
                     <Link
-                      href="#"
+                      href="/dashboard"
                       className="hover:text-red-400 transition-colors"
                     >
-                      Changelog
+                      Dashboard
                     </Link>
                   </li>
                 </ul>
@@ -484,7 +511,7 @@ export default function LandingPage() {
                 <ul className="space-y-2 text-sm text-foreground">
                   <li>
                     <Link
-                      href="#"
+                      href="/terms"
                       className="hover:text-red-400 transition-colors"
                     >
                       Terms of Abuse
@@ -492,7 +519,7 @@ export default function LandingPage() {
                   </li>
                   <li>
                     <Link
-                      href="#"
+                      href="/privacy"
                       className="hover:text-red-400 transition-colors"
                     >
                       Privacy Policy
