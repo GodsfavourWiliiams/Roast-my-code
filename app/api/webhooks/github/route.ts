@@ -116,15 +116,19 @@ async function handleIssueComment(app: App, supabase: SupabaseClient, event: Git
     const persona = getPersona(settings?.persona);
     const prNumber = event.issue.number;
     
-    // Simple keywords that trigger review (short messages only)
+    // Check if it's a question first (questions should be answered, not reviewed)
+    const questionWords = ['how', 'why', 'what', 'when', 'where', 'which', 'who', 'can you', 'could you', 'should', 'is', 'are', 'do', 'does', 'did', 'will', 'would', 'explain', 'tell me', 'help'];
+    const hasQuestionWord = questionWords.some(word => commentBody.toLowerCase().includes(word));
+    const hasQuestionMark = commentBody.includes('?');
+    const isQuestion = hasQuestionWord || hasQuestionMark || commentBody.trim().length > 50;
+    
+    // Simple keywords that trigger review (only if NOT a question)
     const reviewKeywords = ['ready', 'fixed', 'done', 'roast', 'review', 'check', 'look'];
     const hasReviewKeyword = reviewKeywords.some(keyword => commentBody.includes(keyword));
     
-    // If message is long (more than 50 chars), it's likely a question, not a review request
-    // Short messages with keywords = review request
-    // Long messages = question (even if they contain keywords)
+    // Review request = has keyword AND is short AND is NOT a question
     const isShortMessage = commentBody.trim().length <= 50;
-    const isReviewRequest = isShortMessage && hasReviewKeyword;
+    const isReviewRequest = !isQuestion && isShortMessage && hasReviewKeyword;
 
     if (isReviewRequest) {
         const octokit = await app.getInstallationOctokit(event.installation!.id);
@@ -377,15 +381,68 @@ async function triggerAutomatedRoast(
           isLatestCommitOnly: reviewLatestCommitOnly,
       });
 
+      // Determine review event and add blocking message if needed
       const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';
+      let reviewBody = `## 💀 RoastBot Autopsy Report\n\n${roast.text}`;
       
-      await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+      if (roast.should_block) {
+        reviewBody += `\n\n**🛑 BLOCKING: This PR cannot be merged until the critical issues above are fixed.**\n\nYou must address these issues before merging. The merge button will be disabled until you fix them and I approve the changes.`;
+      } else if (roast.violations > 0 || roast.critical > 0) {
+        reviewBody += `\n\n**⚠️ You can merge, but I recommend fixing these issues first.**`;
+      }
+      
+      reviewBody += `\n\n---\n*Sent with attitude by RoastBot*`;
+      
+      // Submit the review - REQUEST_CHANGES will block merge if branch protection requires reviews
+      // Include commit_id to ensure the review is properly associated with the latest commit
+      const prData = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+        owner: event.repository.owner.login,
+        repo: event.repository.name,
+        pull_number: prNumber,
+      });
+      
+      const reviewResponse = await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
           owner: event.repository.owner.login,
           repo: event.repository.name,
           pull_number: prNumber,
-          body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
-          event: reviewEvent
+          body: reviewBody,
+          event: reviewEvent,
+          commit_id: prData.data.head.sha // Associate review with the latest commit
       });
+      
+      // If we're requesting changes, dismiss any existing approvals to ensure the PR is blocked
+      if (roast.should_block && reviewResponse.data.id) {
+        try {
+          // Get existing reviews
+          const { data: reviews } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+            owner: event.repository.owner.login,
+            repo: event.repository.name,
+            pull_number: prNumber,
+          });
+          
+          // Dismiss any existing APPROVE reviews to ensure REQUEST_CHANGES blocks the merge
+          // This ensures that our REQUEST_CHANGES review takes precedence
+          for (const review of reviews) {
+            if (review.state === 'APPROVED' && review.id !== reviewResponse.data.id) {
+              try {
+                await octokit.request('PUT /repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/dismissals', {
+                  owner: event.repository.owner.login,
+                  repo: event.repository.name,
+                  pull_number: prNumber,
+                  review_id: review.id,
+                  message: 'Dismissed due to new critical issues found that must be fixed before merging.'
+                });
+              } catch (e) {
+                // Ignore errors - review might not be dismissable or we might not have permission
+                // REQUEST_CHANGES should still block if branch protection requires reviews
+              }
+            }
+          }
+        } catch (e) {
+          // If we can't dismiss reviews, continue - REQUEST_CHANGES should still block
+          console.error('[GitHub/Webhook] Failed to dismiss existing approvals:', e);
+        }
+      }
 
       await supabaseAdmin.from('notifications').insert({
           user_id: repo.user_id,
