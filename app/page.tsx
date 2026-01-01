@@ -142,10 +142,21 @@ export default function LandingPage() {
               variants={fadeUp}
               className="flex flex-col sm:flex-row items-center gap-4"
             >
-              <Button className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105">
-                <GithubLogoIcon className="w-5 h-5" />
-                Connect Repository
-              </Button>
+              {!isLoading && user ? (
+                <Link href="/dashboard">
+                  <Button className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105">
+                    <Terminal className="w-5 h-5 mr-2" />
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/login">
+                  <Button className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105">
+                    <GithubLogoIcon className="w-5 h-5 mr-2" />
+                    Connect Repository
+                  </Button>
+                </Link>
+              )}
               <Button
                 variant="outline"
                 className="h-12 px-8 rounded-full border-white/10 text-white hover:bg-white/5 font-medium text-base"
