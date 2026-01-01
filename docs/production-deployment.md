@@ -1,9 +1,19 @@
 # Production Deployment Checklist
 
-## GitHub Webhook Configuration
+## GitHub App Configuration
+
+### 0. Make App Public (REQUIRED for customer installations)
+**CRITICAL**: If your app is private, customers cannot install it!
+
+1. Go to your GitHub App settings: `https://github.com/settings/apps/roastbot-godsfavourwilliams`
+2. Scroll to the "Public/Private" or "Visibility" section
+3. Change from **Private** to **Public**
+4. Save changes
+
+**Why?** Private apps can only be installed by the app owner. Public apps can be installed by anyone.
 
 ### 1. Update Webhook URL in GitHub
-- Go to your GitHub App settings: `https://github.com/settings/apps/YOUR_APP_NAME`
+- Go to your GitHub App settings: `https://github.com/settings/apps/roastbot-godsfavourwilliams`
 - Navigate to "Webhook" section
 - Update the webhook URL to: `https://www.roastmycode.online/api/webhooks/github`
 - Ensure "Active" is checked

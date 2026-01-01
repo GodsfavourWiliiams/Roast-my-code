@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { getUserSettings } from "@/app/actions/settings"
 import { Button } from "@/components/ui/button"
 import { GithubLogoIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr';
+import { ROUTES } from "@/lib/routes";
 
 export function InstallAppBanner() {
   const { data: settings, isLoading } = useQuery({
@@ -16,7 +17,8 @@ export function InstallAppBanner() {
 
   if (isLoading || !settings || settings.installation_id) return null;
 
-  const INSTALL_URL = `https://github.com/settings/apps/roastbot-godsfavourwilliams/installations`; // Replace with your actual App Name URL later
+  // Use public installation URL format (works for all users, not just app owner)
+  const INSTALL_URL = ROUTES.EXTERNAL.GITHUB_APP_INSTALL('roastbot-godsfavourwilliams');
 
   return (
     <div className="bg-yellow-500/10 border-b border-yellow-500/20 p-3">
