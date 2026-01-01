@@ -1,53 +1,13 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-
-import { SupabaseClient } from '@supabase/supabase-js';
+import { getValidGitHubSession } from '@/lib/auth/session-utils';
 
 export interface FileNode {
   name: string;
   path: string;
   type: 'file' | 'dir';
   sha: string;
-}
-
-async function getValidSession(supabase: SupabaseClient) {
-  // Use getUser() which automatically refreshes the session if needed
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return null;
-  }
-
-  // Get the session (may have been refreshed by getUser)
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return null;
-  }
-
-  if (!session.provider_token) {
-    // Try to refresh the session if token is missing
-    const {
-      data: { session: refreshedSession },
-      error: refreshError,
-    } = await supabase.auth.refreshSession();
-    if (refreshError) {
-      console.error(
-        '[getValidSession] Failed to refresh session:',
-        refreshError
-      );
-      return null;
-    }
-    return refreshedSession || session;
-  }
-
-  return session;
 }
 
 export async function fetchRepoContents(
@@ -57,7 +17,7 @@ export async function fetchRepoContents(
   const supabase = await createClient();
 
   // Use getUser() which automatically refreshes expired sessions
-  const session = await getValidSession(supabase);
+  const session = await getValidGitHubSession(supabase);
 
   if (!session?.user) {
     return { data: null, error: 'Not authenticated' };
@@ -168,7 +128,7 @@ export async function fetchFileContent(
   const supabase = await createClient();
 
   // Use getUser() which automatically refreshes expired sessions
-  const session = await getValidSession(supabase);
+  const session = await getValidGitHubSession(supabase);
 
   if (!session?.user) {
     return { content: null, error: 'Not authenticated' };

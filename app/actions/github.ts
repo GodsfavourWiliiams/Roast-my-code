@@ -3,41 +3,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { GithubRepo } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { SupabaseClient } from '@supabase/supabase-js';
-
-async function getValidSessionWithRefresh(supabase: SupabaseClient) {
-  // Use getUser() which automatically refreshes the session if needed
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  
-  if (userError || !user) {
-    return null;
-  }
-
-  // Get the session (may have been refreshed by getUser)
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session) {
-    return null;
-  }
-  
-  if (!session.provider_token) {
-    // Try to refresh the session if token is missing
-    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshError) {
-      console.error('[getValidSessionWithRefresh] Failed to refresh session:', refreshError);
-      return null;
-    }
-    return refreshedSession || session;
-  }
-  
-  return session;
-}
+import { getValidGitHubSession } from '@/lib/auth/session-utils';
 
 export async function fetchGithubRepos({ search = '' }: { search?: string } = {}): Promise<{ repos: GithubRepo[]; error: string | null }> {
   const supabase = await createClient();
   
   // Use getUser() which automatically refreshes expired sessions
-  const session = await getValidSessionWithRefresh(supabase);
+  const session = await getValidGitHubSession(supabase);
 
   if (!session) {
     return { error: 'Not authenticated', repos: [] };
@@ -64,7 +36,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
       
       // If token expired, try refreshing session and retry
       if (userResponse.status === 401 || userResponse.status === 403) {
-        const refreshedSession = await getValidSessionWithRefresh(supabase);
+        const refreshedSession = await getValidGitHubSession(supabase);
         if (refreshedSession?.provider_token) {
           providerToken = refreshedSession.provider_token;
           userResponse = await fetch('https://api.github.com/user', {
@@ -92,7 +64,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
 
     // If token expired, try refreshing session and retry
     if (response.status === 401 || response.status === 403) {
-      const refreshedSession = await getValidSessionWithRefresh(supabase);
+      const refreshedSession = await getValidGitHubSession(supabase);
       if (refreshedSession?.provider_token) {
         providerToken = refreshedSession.provider_token;
         response = await fetch(url, {
@@ -122,7 +94,7 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
 export async function saveRepo(repo: GithubRepo) {
   const supabase = await createClient();
 
-  const session = await getValidSessionWithRefresh(supabase);
+  const session = await getValidGitHubSession(supabase);
   if (!session) return { error: 'Not authenticated' };
   const user = session.user;
 
