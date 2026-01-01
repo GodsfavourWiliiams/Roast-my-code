@@ -80,7 +80,6 @@ export async function getRepoDetails(repo_name: string): Promise<{ data: RepoDet
     ? -1 
     : Math.round((pr_survivors / total_prs) * 100);
 
-  console.log(`[Stats/${repo_name}] Violations:${total_violations} | Critical:${critical_issues} | PRs:${total_prs} | Survival:${survival_rate}%`);
 
   return {
     data: {

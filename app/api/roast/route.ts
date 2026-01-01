@@ -8,7 +8,6 @@ export const maxDuration = 60; // Allow 60 seconds for generation
 export async function POST(req: Request) {
   try {
     const { code, filename, repoId } = await req.json();
-    console.log(`[API/Roast] Incoming request for file: ${filename}, repoId: ${repoId}`);
     
     const supabase = await createClient();
     
@@ -79,8 +78,6 @@ STRUCTURE YOUR FEEDBACK:
       system: systemPrompt,
       prompt: `Review this code:\n\n${code}`,
       onFinish: async ({ text }) => {
-        console.log(`[API/Roast] Stream finished. Generated ${text.length} characters.`);
-        
         const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
         let score = null;
         let violations = 0;

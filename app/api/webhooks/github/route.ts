@@ -48,9 +48,6 @@ export async function POST(req: Request) {
     const payload = await req.text();
     const signature = req.headers.get("x-hub-signature-256") || "";
     const eventName = req.headers.get("x-github-event");
-    const now = new Date().toISOString();
-    
-    console.log(`[GitHub/Webhook] [${now}] Incoming event: ${eventName}`);
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {

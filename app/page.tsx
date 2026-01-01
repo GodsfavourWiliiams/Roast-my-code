@@ -19,6 +19,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { GithubLogoIcon } from '@phosphor-icons/react/dist/ssr';
 import { useAuth } from '@/components/auth-provider';
+import { CtaButton } from '@/components/cta-button';
 
 // Animation variants for smooth, professional feel
 const fadeUp = {
@@ -37,24 +38,6 @@ const staggerContainer = {
     transition: { staggerChildren: 0.1 },
   },
 };
-
-interface CtaButtonProps extends React.ComponentProps<typeof Button> {
-    icon?: React.ElementType;
-    label: string;
-    href: string;
-}
-
-const CtaButton = ({ icon: Icon, label, href, ...props }: CtaButtonProps) => (
-    <Link href={href}>
-        <Button 
-            className="h-12 rounded-full bg-red-600 hover:bg-red-700 text-white px-10 font-medium text-base shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:scale-105"
-            {...props}
-        >
-            {Icon && <Icon className="w-5 h-5 mr-2" />}
-            {label}
-        </Button>
-    </Link>
-);
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
