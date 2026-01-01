@@ -1,13 +1,13 @@
 "use client"
 
 import {
-  House,
+  HouseIcon,
   GithubLogoIcon,
-  GearIcon,
   SignOutIcon,
   LightningIcon,
+  GearIcon,
 } from '@phosphor-icons/react/dist/ssr';
-import { ChartBar, Flame } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -29,36 +29,31 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/components/auth-provider';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ROUTES } from '@/lib/routes';
 
 // Menu items... (rest remains the same)
 const items = [
   {
     title: 'Command Center',
-    url: '/dashboard',
-    icon: House,
+    url: ROUTES.DASHBOARD.HOME,
+    icon: HouseIcon,
     tooltip: 'Global overview of your failures',
   },
   {
     title: 'The Cemetery',
-    url: '/dashboard/repos',
+    url: ROUTES.DASHBOARD.REPOS,
     icon: GithubLogoIcon,
     tooltip: "Repositories you've abandoned",
   },
   {
     title: 'Brutal History',
-    url: '/dashboard/roasts',
+    url: ROUTES.DASHBOARD.ROASTS,
     icon: LightningIcon,
     tooltip: 'Log of past insults',
   },
   {
-    title: 'Pain Analytics',
-    url: '/dashboard/analytics',
-    icon: ChartBar,
-    tooltip: 'Charts showing your decline',
-  },
-  {
     title: 'Compliance',
-    url: '/dashboard/settings',
+    url: ROUTES.DASHBOARD.SETTINGS,
     icon: GearIcon,
     tooltip: 'Settings & Security',
   },

@@ -25,9 +25,9 @@ export interface Repository {
   description: string;
   language: string;
   framework?: string | null;
-  stars?: string;
-  forks?: string;
-  watchers?: string;
+  stars_count: number;
+  forks_count: number;
+  watchers_count: number;
   updated_at: string;
   status: 'Running' | 'Paused' | 'Idle' | 'Deleted';
   private: boolean;

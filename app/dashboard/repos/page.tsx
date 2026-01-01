@@ -8,7 +8,6 @@ import {
   FunnelIcon,
   MagnifyingGlassIcon,
   TrashIcon,
-  WarningOctagon,
   Lock,
   Globe,
   CircleNotchIcon,
@@ -36,7 +35,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { RepoCard } from '@/components/repo-card';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
@@ -49,6 +48,9 @@ import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Repository, GithubRepo } from '@/lib/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { ROUTES } from '@/lib/routes';
+import Link from 'next/link';
 
 // Simple Debounce Hook Implementation
 function useDebounceValue<T>(value: T, delay: number): T {
@@ -66,17 +68,14 @@ function useDebounceValue<T>(value: T, delay: number): T {
 
 import { getUserSettings } from '@/app/actions/settings';
 
-import { createClient } from '@/lib/supabase/client';
-
 export default function ReposPage() {
   const [filter, setFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
-  const supabase = createClient();
-  
+
   // Search states
   const [modalSearchQuery, setModalSearchQuery] = useState('');
   const debouncedModalSearch = useDebounceValue(modalSearchQuery, 500);
-  
+
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
   const debouncedDashboardSearch = useDebounceValue(dashboardSearchQuery, 500);
 
@@ -158,6 +157,9 @@ export default function ReposPage() {
       description: r.description || 'No description provided (lazy).',
       language: r.language || 'Unknown',
       framework: r.framework,
+      stars_count: r.stars_count || 0,
+      forks_count: r.forks_count || 0,
+      watchers_count: r.watchers_count || 0,
       updated_at: new Date(r.updated_at).toLocaleDateString(),
       status: r.status,
       private: r.private,
@@ -190,9 +192,11 @@ export default function ReposPage() {
           &gt; Error: Fail to retrieve victim list. <br />
           &gt; Status: 500 - Internal Rage.
         </p>
-        <Button onClick={() => window.location.reload()} variant="outline">
-          Try Again
-        </Button>
+        <Link href={ROUTES.DASHBOARD.HOME}>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Try Again
+          </Button>
+        </Link>
       </div>
     );
   }

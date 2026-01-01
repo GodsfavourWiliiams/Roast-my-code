@@ -320,27 +320,44 @@ async function triggerAutomatedRoast(
           wasTruncated = true;
       }
 
-      const roast = await processAutomatedRoast({
-          repo_id: repo.id,
-          user_id: repo.user_id,
-          pr_number: prNumber,
-          pr_title: event.pull_request.title,
-          repo_full_name: event.repository.full_name,
-          code: processedCode,
-          was_truncated: wasTruncated,
-      });
+            // 3. Process the Roast (AI + DB Save)
+            const roast = await processAutomatedRoast({
+                repo_id: repo.id,
+                user_id: repo.user_id,
+                pr_number: prNumber,
+                pr_title: event.pull_request.title,
+                repo_full_name: event.repository.full_name,
+                code: processedCode,
+                was_truncated: wasTruncated,
+            });
 
-      const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'COMMENT';
-      
-      await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
-          owner: event.repository.owner.login,
-          repo: event.repository.name,
-          pull_number: prNumber,
-          body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
-          event: reviewEvent
-      });
+            // 4. Post Review to GitHub
+            // If should_block is true, we use REQUEST_CHANGES. If false, we use APPROVE to unlock the PR.
+            const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';
+            
+            await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+                owner: event.repository.owner.login,
+                repo: event.repository.name,
+                pull_number: prNumber,
+                body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
+                event: reviewEvent
+            });
 
-      console.log(`[GitHub/Webhook] Roast ${reviewEvent} posted successfully.`);
+            // 5. Send In-App Notification
+            const notifTitle = roast.should_block ? '🛑 PR Merge Blocked' : '✅ Roast Completed';
+            const notifMessage = roast.should_block 
+                ? `PR #${prNumber} in ${event.repository.name} has critical issues and cannot be merged.` 
+                : `PR #${prNumber} in ${event.repository.name} has been reviewed. Score: ${roast.score}/10`;
+
+            await supabaseAdmin.from('notifications').insert({
+                user_id: repo.user_id,
+                title: notifTitle,
+                message: notifMessage,
+                type: roast.should_block ? 'error' : 'success',
+                link: `/dashboard/repos/${event.repository.name}`
+            });
+
+            console.log(`[GitHub/Webhook] Roast ${reviewEvent} and notification posted for PR #${prNumber}`);
     } catch (e: unknown) {
       console.error('[GitHub/Webhook] Roast execution failed:', e);
     }

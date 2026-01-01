@@ -21,6 +21,9 @@ export interface RepoDetails {
   language: string | null;
   framework: string | null;
   url: string;
+  stars_count: number;
+  forks_count: number;
+  watchers_count: number;
   private: boolean;
   status: 'Running' | 'Paused' | 'Idle' | 'Deleted';
   updated_at: string;
