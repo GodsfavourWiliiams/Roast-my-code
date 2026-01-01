@@ -35,6 +35,7 @@ interface GitHubWebhookPayload {
   };
   issue?: {
     number: number;
+    title: string;
     pull_request?: object;
   };
 }
@@ -66,11 +67,14 @@ export async function POST(req: Request) {
 
     // Handle User Replies
     if (eventName === "issue_comment" && event.action === "created" && event.issue?.pull_request && event.comment) {
-        const isMentioned = event.comment.body.toLowerCase().includes('roastbot');
-        const isNotBot = event.comment.user.login !== 'roast-bot[bot]';
+        const commentBody = event.comment.body.toLowerCase();
+        const isMentioned = commentBody.includes('roastbot');
+        const userLogin = event.comment.user.login;
+        
+        console.log(`[GitHub/Webhook] Comment by ${userLogin}: "${commentBody}" | Mentioned: ${isMentioned}`);
 
-        if (isMentioned && isNotBot) {
-            console.log(`[GitHub/Webhook] Bot mentioned in comment. Evaluating intent...`);
+        if (isMentioned) {
+            console.log(`[GitHub/Webhook] Bot mentioned. Evaluating intent...`);
             const repoGithubId = event.repository!.id;
             const prNumber = event.issue.number;
 
@@ -81,19 +85,57 @@ export async function POST(req: Request) {
                 .single();
 
             if (repo) {
-                const body = event.comment.body.toLowerCase();
-                const wantsRoast = body.includes('ready') || body.includes('fixed') || body.includes('done') || body.includes('roast');
+                // Fetch user settings for persona
+                const { data: settings } = await supabaseAdmin
+                    .from('user_settings')
+                    .select('persona')
+                    .eq('user_id', repo.user_id)
+                    .single();
+
+                const persona = settings?.persona || 'toxic';
+                const wantsRoast = commentBody.includes('ready') || 
+                                   commentBody.includes('fixed') || 
+                                   commentBody.includes('done') || 
+                                   commentBody.includes('roast') ||
+                                   commentBody.includes('review');
 
                 if (wantsRoast) {
                     console.log(`[GitHub/Webhook] User requested a re-roast for PR #${prNumber}.`);
+                    
+                    const octokit = await app.getInstallationOctokit(event.installation!.id);
+                    
+                    // 1. Immediate GitHub acknowledgement
+                    const acknowledgment = persona === 'toxic' ? "Fine, I'm looking. Try not to break anything else while I'm gone." :
+                                          persona === 'shakespearean' ? "By my troth, I shall inspect thy scrolls forthwith." :
+                                          persona === 'honest' ? "I'm starting the review now. One moment." :
+                                          "I'm on it. Processing your request...";
+
+                    await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+                        owner: event.repository!.owner.login,
+                        repo: event.repository!.name,
+                        issue_number: prNumber,
+                        body: acknowledgment,
+                    });
+
+                    // 2. Immediate In-App Notification
+                    await supabaseAdmin.from('notifications').insert({
+                        user_id: repo.user_id,
+                        title: 'Analysis Started',
+                        message: `RoastBot is currently dissecting PR #${prNumber} in ${event.repository!.name}.`,
+                        type: 'info',
+                        link: `/dashboard/repos/${event.repository!.name}`
+                    });
+
+                    // 3. Trigger the actual roast
                     await triggerAutomatedRoast(app, supabaseAdmin, event, repo, prNumber);
                 } else {
+                    console.log(`[GitHub/Webhook] Standard reply requested.`);
                     const reply = await processReply({
                         user_id: repo.user_id,
                         repo_name: event.repository!.full_name,
                         pr_number: prNumber,
                         user_comment: event.comment!.body,
-                        user_login: event.comment!.user.login
+                        user_login: userLogin
                     });
 
                     const octokit = await app.getInstallationOctokit(event.installation!.id);
@@ -284,9 +326,13 @@ async function triggerAutomatedRoast(
     repo: { id: number; user_id: string; status: string }, 
     prNumber: number
 ) {
-    console.log(`[GitHub/Webhook] Triggering Roast for PR #${prNumber}...`);
+    console.log(`[GitHub/Webhook] Starting Automated Roast logic for PR #${prNumber}...`);
 
-    if (!event.repository || !event.pull_request) return;      
+    if (!event.repository) return;      
+    
+    // Determine the PR title from either the PR event or the Issue (Comment) event
+    const prTitle = event.pull_request?.title || event.issue?.title || `PR #${prNumber}`;
+
     const { data: settings } = await supabaseAdmin
       .from('user_settings')
       .select('installation_id')
@@ -301,6 +347,7 @@ async function triggerAutomatedRoast(
     try {
       const octokit = await app.getInstallationOctokit(settings.installation_id);
 
+      // 2. Fetch the PR Diff
       const { data: rawDiff } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
           owner: event.repository.owner.login,
           repo: event.repository.name,
@@ -320,44 +367,27 @@ async function triggerAutomatedRoast(
           wasTruncated = true;
       }
 
-            // 3. Process the Roast (AI + DB Save)
-            const roast = await processAutomatedRoast({
-                repo_id: repo.id,
-                user_id: repo.user_id,
-                pr_number: prNumber,
-                pr_title: event.pull_request.title,
-                repo_full_name: event.repository.full_name,
-                code: processedCode,
-                was_truncated: wasTruncated,
-            });
+      const roast = await processAutomatedRoast({
+          repo_id: repo.id,
+          user_id: repo.user_id,
+          pr_number: prNumber,
+          pr_title: prTitle,
+          repo_full_name: event.repository.full_name,
+          code: processedCode,
+          was_truncated: wasTruncated,
+      });
 
-            // 4. Post Review to GitHub
-            // If should_block is true, we use REQUEST_CHANGES. If false, we use APPROVE to unlock the PR.
-            const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';
-            
-            await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
-                owner: event.repository.owner.login,
-                repo: event.repository.name,
-                pull_number: prNumber,
-                body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
-                event: reviewEvent
-            });
+      const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';
+      
+      await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+          owner: event.repository.owner.login,
+          repo: event.repository.name,
+          pull_number: prNumber,
+          body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
+          event: reviewEvent
+      });
 
-            // 5. Send In-App Notification
-            const notifTitle = roast.should_block ? '🛑 PR Merge Blocked' : '✅ Roast Completed';
-            const notifMessage = roast.should_block 
-                ? `PR #${prNumber} in ${event.repository.name} has critical issues and cannot be merged.` 
-                : `PR #${prNumber} in ${event.repository.name} has been reviewed. Score: ${roast.score}/10`;
-
-            await supabaseAdmin.from('notifications').insert({
-                user_id: repo.user_id,
-                title: notifTitle,
-                message: notifMessage,
-                type: roast.should_block ? 'error' : 'success',
-                link: `/dashboard/repos/${event.repository.name}`
-            });
-
-            console.log(`[GitHub/Webhook] Roast ${reviewEvent} and notification posted for PR #${prNumber}`);
+      console.log(`[GitHub/Webhook] Roast ${reviewEvent} posted successfully.`);
     } catch (e: unknown) {
       console.error('[GitHub/Webhook] Roast execution failed:', e);
     }
