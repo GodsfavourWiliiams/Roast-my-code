@@ -157,7 +157,7 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
           <br />
           {error?.message || 'The repository might have been deleted or moved.'}
         </p>
-        <Link href="/dashboard/repos">
+        <Link href={ROUTES.DASHBOARD.REPOS}>
           <Button variant="outline">Return to Cemetery</Button>
         </Link>
       </div>
@@ -182,7 +182,7 @@ function RepoDetailsContent({ params }: { params: Promise<{ name: string }> }) {
       <div className="flex flex-col gap-6 border-b pb-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-4">
-                <Link href="/dashboard/repos" className="mt-1">
+                <Link href={ROUTES.DASHBOARD.REPOS} className="mt-1">
                     <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
                         <ArrowLeftIcon size={20} weight="bold" />
                     </Button>

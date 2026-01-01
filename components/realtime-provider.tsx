@@ -27,23 +27,24 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'repositories' },
-        () => {
-          console.log(
-            '[Realtime] Repository change detected. Forcing refresh...'
-          );
+        (payload) => {
+          console.log("[Realtime] Repository change detected:", payload.eventType, payload.new);
           forceRefresh();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'roasts' },
-        () => {
-          console.log('[Realtime] Roast change detected. Forcing refresh...');
+        (payload) => {
+          console.log("[Realtime] Roast change detected:", payload.eventType, payload.new);
           forceRefresh();
         }
       )
       .subscribe((status) => {
-        console.log('[Realtime] Subscription status:', status);
+          console.log("[Realtime] Subscription status:", status);
+          if (status === 'CHANNEL_ERROR') {
+              console.error("[Realtime] Failed to connect to Supabase Realtime. Ensure Realtime is enabled for these tables in the Supabase Dashboard.");
+          }
       });
 
     return () => {

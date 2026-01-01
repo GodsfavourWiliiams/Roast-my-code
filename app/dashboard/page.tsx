@@ -83,7 +83,7 @@ export default function DashboardPage() {
         <Link href={ROUTES.DASHBOARD.REPOS}>
           <Button
             className="h-10 font-semibold uppercase"
-            disabled={is_loading_repos}
+            disabled={isLoading}
           >
             <PlusIcon strokeWidth={4} className="mr-2" /> Link More Trash
           </Button>
