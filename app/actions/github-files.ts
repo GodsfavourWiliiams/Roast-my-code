@@ -1,7 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getGitHubApp } from '@/lib/github-app';
+
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface FileNode {
   name: string;
@@ -10,58 +11,119 @@ export interface FileNode {
   sha: string;
 }
 
+async function getValidSession(supabase: SupabaseClient) {
+  // Use getUser() which automatically refreshes the session if needed
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return null;
+  }
+
+  // Get the session (may have been refreshed by getUser)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return null;
+  }
+
+  if (!session.provider_token) {
+    // Try to refresh the session if token is missing
+    const {
+      data: { session: refreshedSession },
+      error: refreshError,
+    } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      console.error(
+        '[getValidSession] Failed to refresh session:',
+        refreshError
+      );
+      return null;
+    }
+    return refreshedSession || session;
+  }
+
+  return session;
+}
+
 export async function fetchRepoContents(
   repoFullName: string,
   path: string = ''
 ): Promise<{ data: FileNode[] | null; error: string | null }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
+  // Use getUser() which automatically refreshes expired sessions
+  const session = await getValidSession(supabase);
+
+  if (!session?.user) {
     return { data: null, error: 'Not authenticated' };
   }
 
+  let providerToken = session.provider_token;
+  if (!providerToken) {
+    return {
+      data: null,
+      error: 'No GitHub token found. Please sign out and sign in again.',
+    };
+  }
+
   try {
-    // 1. Get the installation_id for this user (fallback)
-    const { data: settings } = await supabase
-        .from('user_settings')
-        .select('installation_id')
-        .eq('user_id', user.id)
-        .single();
-
-    // 2. Resolve Installation ID dynamically
-    const app = getGitHubApp();
     const [owner, repo] = repoFullName.split('/');
-    let targetInstallationId = null;
 
-    try {
-        const { data: installation } = await app.octokit.request('GET /repos/{owner}/{repo}/installation', {
-            owner,
-            repo,
-        });
-        if (installation?.id) {
-            targetInstallationId = installation.id;
-        }
-    } catch (e) {
-        console.warn(`[fetchRepoContents] Could not lookup installation for ${repoFullName}`, e);
+    // Use OAuth token (always available when logged in)
+    // This works for all users, including new signups who don't have the app installed yet
+    let response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+      {
+        headers: {
+          Authorization: `Bearer ${providerToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      }
+    );
+
+    // If token expired, try refreshing session and retry once
+    if (response.status === 401 || response.status === 403) {
+      console.log(
+        '[fetchRepoContents] Token expired, attempting to refresh session...'
+      );
+      const {
+        data: { session: refreshedSession },
+        error: refreshError,
+      } = await supabase.auth.refreshSession();
+
+      if (refreshError) {
+        console.error(
+          '[fetchRepoContents] Failed to refresh session:',
+          refreshError
+        );
+      } else if (refreshedSession?.provider_token) {
+        providerToken = refreshedSession.provider_token;
+        // Retry the request with refreshed token
+        response = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+          {
+            headers: {
+              Authorization: `Bearer ${providerToken}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+          }
+        );
+      }
     }
 
-    if (!targetInstallationId) {
-        if (settings?.installation_id) {
-            targetInstallationId = settings.installation_id;
-        } else {
-            return { data: null, error: 'REAUTH_REQUIRED' }; // App needs installation
-        }
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return { data: null, error: 'REAUTH_REQUIRED' };
+      }
+      throw new Error(`GitHub API error: ${response.statusText}`);
     }
 
-    const octokit = await app.getInstallationOctokit(targetInstallationId);
-
-    // 3. Fetch contents
-    const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-        owner,
-        repo,
-        path,
-    });
+    const data = await response.json();
 
     if (!Array.isArray(data)) {
       return { data: null, error: 'Path is a file, not a directory' };
@@ -82,14 +144,19 @@ export async function fetchRepoContents(
 
     return { data: files, error: null };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching repo contents:', error);
-    
+
     // Check if it's a 401/403 from GitHub specifically
-    if (errorMessage.includes('401') || errorMessage.includes('Bad credentials')) {
-        return { data: null, error: 'REAUTH_REQUIRED' };
+    if (
+      errorMessage.includes('401') ||
+      errorMessage.includes('403') ||
+      errorMessage.includes('Bad credentials')
+    ) {
+      return { data: null, error: 'REAUTH_REQUIRED' };
     }
-    
+
     return { data: null, error: errorMessage };
   }
 }
@@ -99,50 +166,75 @@ export async function fetchFileContent(
   path: string
 ): Promise<{ content: string | null; error: string | null }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
+  // Use getUser() which automatically refreshes expired sessions
+  const session = await getValidSession(supabase);
+
+  if (!session?.user) {
     return { content: null, error: 'Not authenticated' };
   }
 
+  let providerToken = session.provider_token;
+  if (!providerToken) {
+    return {
+      content: null,
+      error: 'No GitHub token found. Please sign out and sign in again.',
+    };
+  }
+
   try {
-    const { data: settings } = await supabase
-        .from('user_settings')
-        .select('installation_id')
-        .eq('user_id', user.id)
-        .single();
-
-    const app = getGitHubApp();
     const [owner, repo] = repoFullName.split('/');
-    let targetInstallationId = null;
 
-    try {
-        const { data: installation } = await app.octokit.request('GET /repos/{owner}/{repo}/installation', {
-            owner,
-            repo,
-        });
-        if (installation?.id) {
-            targetInstallationId = installation.id;
-        }
-    } catch (e) {
-        console.warn(`[fetchFileContent] Could not lookup installation for ${repoFullName}`, e);
+    // Use OAuth token (always available when logged in)
+    // This works for all users, including new signups who don't have the app installed yet
+    let response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+      {
+        headers: {
+          Authorization: `Bearer ${providerToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      }
+    );
+
+    // If token expired, try refreshing session and retry once
+    if (response.status === 401 || response.status === 403) {
+      console.log(
+        '[fetchFileContent] Token expired, attempting to refresh session...'
+      );
+      const {
+        data: { session: refreshedSession },
+        error: refreshError,
+      } = await supabase.auth.refreshSession();
+
+      if (refreshError) {
+        console.error(
+          '[fetchFileContent] Failed to refresh session:',
+          refreshError
+        );
+      } else if (refreshedSession?.provider_token) {
+        providerToken = refreshedSession.provider_token;
+        // Retry the request with refreshed token
+        response = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+          {
+            headers: {
+              Authorization: `Bearer ${providerToken}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+          }
+        );
+      }
     }
 
-    if (!targetInstallationId) {
-        if (settings?.installation_id) {
-            targetInstallationId = settings.installation_id;
-        } else {
-            return { content: null, error: 'REAUTH_REQUIRED' };
-        }
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return { content: null, error: 'REAUTH_REQUIRED' };
+      }
+      throw new Error(`GitHub API error: ${response.statusText}`);
     }
 
-    const octokit = await app.getInstallationOctokit(targetInstallationId);
-
-    const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-        owner,
-        repo,
-        path,
-    });
+    const data = await response.json();
 
     if (Array.isArray(data) || !('content' in data)) {
       return { content: null, error: 'Path is a directory, not a file' };
@@ -151,8 +243,19 @@ export async function fetchFileContent(
     const content = Buffer.from(data.content, 'base64').toString('utf-8');
     return { content, error: null };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching file content:', error);
+
+    // Check if it's a 401/403 from GitHub specifically
+    if (
+      errorMessage.includes('401') ||
+      errorMessage.includes('403') ||
+      errorMessage.includes('Bad credentials')
+    ) {
+      return { content: null, error: 'REAUTH_REQUIRED' };
+    }
+
     return { content: null, error: errorMessage };
   }
 }
