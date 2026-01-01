@@ -18,7 +18,7 @@ import {
 } from '@phosphor-icons/react/dist/ssr';
 import { FileExplorer } from '@/components/file-explorer';
 import { fetchFileContent } from "@/app/actions/github-files"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { toast } from "sonner"
 import { useQueryClient } from '@tanstack/react-query';
@@ -45,6 +45,7 @@ export function ManualRoastDialog({
     isLoading: isRoasting,
   } = useCompletion({
     api: '/api/roast',
+    streamProtocol: 'text',
     onFinish: (prompt, result) => {
       if (!result || result.length === 0) {
         console.error('[Client/Roast] Stream finished but received 0 bytes.');
@@ -174,16 +175,20 @@ export function ManualRoastDialog({
               />
             </div>
           ) : (
-            <ScrollArea className="h-full p-6">
-              {isRoasting && !completion && (
-                <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                  <CircleNotchIcon className="animate-spin" />
-                  <span>Reading code...</span>
-                </div>
-              )}
-                                  <div className="p-6">
-                                      <MarkdownRenderer content={completion} />
-                                  </div>            </ScrollArea>
+            <ScrollArea className="h-full w-full">
+              <div className="p-6">
+                {isRoasting && completion.length === 0 && (
+                  <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                    <CircleNotchIcon className="animate-spin" />
+                    <span>Reading code...</span>
+                  </div>
+                )}
+                {completion.length > 0 && (
+                  <MarkdownRenderer content={completion} />
+                )}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           )}
         </div>
       </DialogContent>

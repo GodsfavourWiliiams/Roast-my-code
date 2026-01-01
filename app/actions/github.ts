@@ -24,7 +24,8 @@ export async function fetchGithubRepos({ search = '' }: { search?: string } = {}
 
   try {
     const PER_PAGE = 20;
-    let url = `https://api.github.com/user/repos?sort=updated&type=all&per_page=${PER_PAGE}`;
+    // Use affiliation to exclude 'collaborator' repos (repos the user was "added to" but doesn't own/belong to org)
+    let url = `https://api.github.com/user/repos?sort=updated&affiliation=owner,organization_member&per_page=${PER_PAGE}`;
 
     if (search) {
       const userResponse = await fetch('https://api.github.com/user', {

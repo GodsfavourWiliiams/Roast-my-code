@@ -19,7 +19,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
         rehypePlugins={[rehypeHighlight]}
         components={{
           pre: ({ children }) => (
-            <pre className="rounded-lg bg-muted/50 p-4 overflow-x-auto border border-border/50 font-mono text-xs leading-relaxed">
+            <pre className="rounded-lg bg-muted/50 p-4 overflow-x-auto border border-border/50 font-mono text-xs leading-relaxed whitespace-pre">
               {children}
             </pre>
           ),

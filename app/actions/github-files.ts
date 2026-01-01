@@ -22,23 +22,41 @@ export async function fetchRepoContents(
   }
 
   try {
-    // 1. Get the installation_id for this user
+    // 1. Get the installation_id for this user (fallback)
     const { data: settings } = await supabase
         .from('user_settings')
         .select('installation_id')
         .eq('user_id', user.id)
         .single();
 
-    if (!settings?.installation_id) {
-        return { data: null, error: 'REAUTH_REQUIRED' }; // App needs installation
+    // 2. Resolve Installation ID dynamically
+    const app = getGitHubApp();
+    const [owner, repo] = repoFullName.split('/');
+    let targetInstallationId = null;
+
+    try {
+        const { data: installation } = await app.octokit.request('GET /repos/{owner}/{repo}/installation', {
+            owner,
+            repo,
+        });
+        if (installation?.id) {
+            targetInstallationId = installation.id;
+        }
+    } catch (e) {
+        console.warn(`[fetchRepoContents] Could not lookup installation for ${repoFullName}`, e);
     }
 
-    // 2. Use the Bot (GitHub App) identity
-    const app = getGitHubApp();
-    const octokit = await app.getInstallationOctokit(settings.installation_id);
+    if (!targetInstallationId) {
+        if (settings?.installation_id) {
+            targetInstallationId = settings.installation_id;
+        } else {
+            return { data: null, error: 'REAUTH_REQUIRED' }; // App needs installation
+        }
+    }
+
+    const octokit = await app.getInstallationOctokit(targetInstallationId);
 
     // 3. Fetch contents
-    const [owner, repo] = repoFullName.split('/');
     const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
         owner,
         repo,
@@ -94,14 +112,32 @@ export async function fetchFileContent(
         .eq('user_id', user.id)
         .single();
 
-    if (!settings?.installation_id) {
-        return { content: null, error: 'REAUTH_REQUIRED' };
+    const app = getGitHubApp();
+    const [owner, repo] = repoFullName.split('/');
+    let targetInstallationId = null;
+
+    try {
+        const { data: installation } = await app.octokit.request('GET /repos/{owner}/{repo}/installation', {
+            owner,
+            repo,
+        });
+        if (installation?.id) {
+            targetInstallationId = installation.id;
+        }
+    } catch (e) {
+        console.warn(`[fetchFileContent] Could not lookup installation for ${repoFullName}`, e);
     }
 
-    const app = getGitHubApp();
-    const octokit = await app.getInstallationOctokit(settings.installation_id);
+    if (!targetInstallationId) {
+        if (settings?.installation_id) {
+            targetInstallationId = settings.installation_id;
+        } else {
+            return { content: null, error: 'REAUTH_REQUIRED' };
+        }
+    }
 
-    const [owner, repo] = repoFullName.split('/');
+    const octokit = await app.getInstallationOctokit(targetInstallationId);
+
     const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
         owner,
         repo,
