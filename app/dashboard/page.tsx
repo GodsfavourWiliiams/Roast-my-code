@@ -19,12 +19,15 @@ import {
   SkullIcon,
   ArrowRightIcon,
   GitPullRequestIcon,
+  WarningCircleIcon,
+  ActivityIcon,
 } from '@phosphor-icons/react/dist/ssr';
 import { Flame } from 'lucide-react';
 import { getDashboardData } from '@/app/actions/dashboard';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useQuery } from '@tanstack/react-query';
+import { ROUTES } from '@/lib/routes';
 import { 
   LineChart, 
   Line, 
@@ -77,38 +80,55 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight">Toxic Command Center</h1>
           <p className="text-muted-foreground">Welcome back, code-monkey. Ready to have your feelings hurt?</p>
         </div>
-        <Link href="/dashboard/repos">
-          <Button className="h-10 font-semibold uppercase">
+        <Link href={ROUTES.DASHBOARD.REPOS}>
+          <Button
+            className="h-10 font-semibold uppercase"
+            disabled={is_loading_repos}
+          >
             <PlusIcon strokeWidth={4} className="mr-2" /> Link More Trash
           </Button>
         </Link>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      {/* Stats Grid - 6 Cards */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <StatCard 
-            title="Egos Bruised" 
-            value={stats?.egos_bruised} 
-            desc="Total autopsies performed" 
-            icon={<Flame size={16} className="text-primary" />} 
+            title="Avg Score" 
+            value={stats ? `${stats.avg_score}/10` : undefined} 
+            desc="Overall competence" 
+            icon={<ActivityIcon size={16} className="text-blue-400" />} 
+            loading={isLoading}
+        />
+        <StatCard 
+            title="Critical Issues" 
+            value={stats?.critical_issues} 
+            desc="Disastrous code crimes" 
+            icon={<WarningCircleIcon size={16} className="text-destructive" />} 
             loading={isLoading}
         />
         <StatCard 
             title="Total Tears" 
             value={stats ? `${((stats.total_violations || 0) * 0.1).toFixed(1)}L` : undefined} 
-            desc="Cumulative code violations" 
-            icon={<TrendUpIcon size={16} className="text-blue-500" />} 
+            desc="Cumulative violations" 
+            icon={<TrendUpIcon size={16} className="text-orange-500" />} 
             loading={isLoading}
         />
         <StatCard 
-            title="Objective Garbage" 
+            title="Egos Bruised" 
+            value={stats?.egos_bruised} 
+            desc="Reviews performed" 
+            icon={<Flame size={16} className="text-primary" />} 
+            loading={isLoading}
+        />
+        <StatCard 
+            title="Garbage" 
             value={stats?.active_repos} 
-            desc="Active repos under analysis" 
+            desc="Active repositories" 
             icon={<WarningIcon size={16} className="text-yellow-500" />} 
             loading={isLoading}
         />
         <StatCard 
-            title="Hostages (Repos)" 
+            title="Hostages" 
             value={stats?.hostages} 
             desc="Total repos linked" 
             icon={<GithubLogoIcon size={16} className="text-slate-400" />} 
@@ -176,7 +196,7 @@ export default function DashboardPage() {
                 <CardTitle className="text-lg">Recent Slaughter</CardTitle>
                 <CardDescription>Pull requests that didn&apos;t stand a chance.</CardDescription>
             </div>
-            <Link href="/dashboard/roasts">
+            <Link href={ROUTES.DASHBOARD.ROASTS}>
                 <Button variant="ghost" size="sm" className="text-xs gap-1">
                     View All <ArrowRightIcon />
                 </Button>
@@ -212,6 +232,9 @@ export default function DashboardPage() {
                                 </span>
                                 <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Score</span>
                             </div>
+                            <Button variant="ghost" size="sm" asChild>
+                                <Link href={ROUTES.DASHBOARD.REPO_DETAILS(roast.repo_name)}>Details</Link>
+                            </Button>
                         </div>
                     ))}
                 </div>
@@ -223,28 +246,12 @@ export default function DashboardPage() {
         <Card className="col-span-3 lg:col-span-2 border-border">
           <CardHeader>
             <CardTitle className="text-lg">Victim List</CardTitle>
-            <CardDescription>Codebases currently under watch.</CardDescription>
+            <CardDescription>Management shortcuts.</CardDescription>
           </CardHeader>
-          <CardContent className="p-0 border-t">
-            {/* The victim list mapping is already handled by RealtimeProvider elsewhere, 
-                but we need to ensure it's rendered here too. 
-                I'll keep the simplified version from your previous dashboard.
-            */}
-            {/* Since linkedRepos is not passed here directly (we use dashboard data), we use data.stats.linked_repos if available, or just use the recent slaughter repo names as a shortcut, but better to keep it real. 
-                Wait, I fetched 'hostages' count, but I should fetch the actual repo objects too. 
-                I will update the getDashboardData to return top 5 repos.
-            */}
-            {isLoading ? (
-                <div className="p-6 space-y-4">
-                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-                </div>
-            ) : (
-                <div className="p-6 flex flex-col items-center justify-center text-center opacity-50 italic text-sm">
-                    <SkullIcon size={32} className="mb-2" />
-                    Manage all victims in <br/>
-                    <Link href="/dashboard/repos" className="text-primary hover:underline not-italic font-bold mt-1 inline-block text-base">The Cemetery</Link>
-                </div>
-            )}
+          <CardContent className="p-6 border-t flex flex-col items-center justify-center text-center opacity-50 italic text-sm min-h-[200px]">
+            <SkullIcon size={32} className="mb-2" />
+            Manage all victims in <br/>
+            <Link href={ROUTES.DASHBOARD.REPOS} className="text-primary hover:underline not-italic font-bold mt-1 inline-block text-base">The Cemetery</Link>
           </CardContent>
         </Card>
       </div>
@@ -256,19 +263,19 @@ function StatCard({ title, value, desc, icon, loading }: { title: string, value?
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium truncate pr-2">{title}</CardTitle>
-                {icon}
+                <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight truncate pr-1">{title}</CardTitle>
+                <div className="shrink-0">{icon}</div>
             </CardHeader>
             <CardContent>
                 {loading ? (
                     <div className="space-y-2">
-                        <Skeleton className="h-8 w-12" />
-                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-7 w-12" />
+                        <Skeleton className="h-2 w-16" />
                     </div>
                 ) : (
                     <>
-                        <div className="text-2xl font-bold break-all">{value ?? 0}</div>
-                        <p className="text-[10px] text-muted-foreground truncate" title={desc}>{desc}</p>
+                        <div className="text-xl font-black break-all leading-tight">{value ?? 0}</div>
+                        <p className="text-[9px] text-muted-foreground truncate mt-1" title={desc}>{desc}</p>
                     </>
                 )}
             </CardContent>

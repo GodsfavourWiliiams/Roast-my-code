@@ -322,15 +322,19 @@ export async function saveRepo(repo: GithubRepo) {
         github_id: repo.id,
         name: repo.name,
         full_name: repo.full_name,
-        description: repo.description,
+              description: repo.description,
               language: repo.language,
               framework: framework,
               url: repo.html_url,
               default_branch: repo.default_branch || 'main',
-              private: repo.private,        status: initialStatus,
-        open_prs_count: pending_murders,
-        updated_at: new Date().toISOString(),
-      })
+              private: repo.private,
+              status: initialStatus,
+              open_prs_count: pending_murders,
+              stars_count: repo.stargazers_count || 0,
+              forks_count: repo.forks_count || 0,
+              watchers_count: repo.watchers_count || 0,
+              updated_at: new Date().toISOString(),
+            })
       .select()
       .single();
   
@@ -404,6 +408,9 @@ export interface SavedRepo {
   private: boolean;
   status: 'Running' | 'Paused' | 'Idle' | 'Deleted';
   open_prs_count: number;
+  stars_count: number;
+  forks_count: number;
+  watchers_count: number;
   created_at: string;
   updated_at: string;
 }

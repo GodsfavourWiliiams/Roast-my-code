@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 export interface DashboardStats {
   egos_bruised: number;
   total_violations: number;
+  critical_issues: number;
+  avg_score: string;
   active_repos: number;
   hostages: number;
 }
@@ -47,8 +49,17 @@ export async function getDashboardData(): Promise<{
     const { count: hostages } = await supabase.from('repositories').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
     const { count: active_repos } = await supabase.from('repositories').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'Running');
     
-    const { data: violations_data } = await supabase.from('roasts').select('violations_count').eq('user_id', user.id);
-    const total_violations = violations_data?.reduce((acc, curr) => acc + (curr.violations_count || 0), 0) || 0;
+    const { data: roast_metrics } = await supabase
+        .from('roasts')
+        .select('violations_count, critical_issues_count, roast_score')
+        .eq('user_id', user.id);
+
+    const total_violations = roast_metrics?.reduce((acc, curr) => acc + (curr.violations_count || 0), 0) || 0;
+    const critical_issues = roast_metrics?.reduce((acc, curr) => acc + (curr.critical_issues_count || 0), 0) || 0;
+    
+    const avg_score = roast_metrics?.length 
+        ? (roast_metrics.reduce((acc, curr) => acc + (curr.roast_score || 0), 0) / roast_metrics.length).toFixed(1)
+        : "0.0";
 
     // 2. Fetch Recent Roasts
     const { data: recent_data } = await supabase
@@ -74,8 +85,13 @@ export async function getDashboardData(): Promise<{
       score: r.roast_score || 0
     }));
 
-    const { data: crimes_data } = await supabase.from('roasts').select(`violations_count, critical_issues_count, repositories ( name )`).eq('user_id', user.id);
     const repo_map: Record<string, RepoCrime> = {};
+    roast_metrics?.forEach((item: any) => {
+      // Note: we need repo name here too, but roast_metrics above didn't include it. 
+      // Re-fetching or joining above is better. I'll stick to basic grouping logic.
+    });
+    // Let's refine the Crimes per Repo fetch
+    const { data: crimes_data } = await supabase.from('roasts').select(`violations_count, critical_issues_count, repositories ( name )`).eq('user_id', user.id);
     (crimes_data || []).forEach((item: any) => {
       const repoName = item.repositories?.name || 'Unknown';
       if (!repo_map[repoName]) repo_map[repoName] = { name: repoName, violations: 0, critical: 0 };
@@ -84,7 +100,7 @@ export async function getDashboardData(): Promise<{
     });
 
     return {
-      stats: { egos_bruised: egos_bruised || 0, total_violations, active_repos: active_repos || 0, hostages: hostages || 0 },
+      stats: { egos_bruised: egos_bruised || 0, total_violations, critical_issues, avg_score, active_repos: active_repos || 0, hostages: hostages || 0 },
       recent_roasts,
       score_trend,
       repo_crimes: Object.values(repo_map),
