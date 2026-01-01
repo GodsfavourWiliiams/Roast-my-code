@@ -76,7 +76,6 @@ export async function POST(req: Request) {
       7. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.
     `;
 
-    // @ts-expect-error streamText types are slightly mismatched but valid
     const result = streamText({
       model: google('models/gemini-flash-latest'),
       system: systemPrompt,

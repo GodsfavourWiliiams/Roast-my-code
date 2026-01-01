@@ -54,8 +54,7 @@ export async function getGlobalRoastHistory(params: {
       )
     `)
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .returns<RawRoast[]>();
+    .order('created_at', { ascending: false });
 
   // 1. Server-side Filtering by Intensity
   if (filter !== 'all') {
@@ -75,7 +74,7 @@ export async function getGlobalRoastHistory(params: {
     query = query.or(`pr_title.ilike.%${search}%,repositories.name.ilike.%${search}%`);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await query.returns<RawRoast[]>();
 
   if (error) {
     console.error('Error fetching global history:', error);

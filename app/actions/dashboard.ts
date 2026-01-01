@@ -42,6 +42,18 @@ interface RoastData {
   } | null;
 }
 
+interface RecentRoastRaw {
+  id: number;
+  pr_title: string | null;
+  pr_number: number | null;
+  roast_content: string;
+  roast_score: number | null;
+  created_at: string;
+  repositories: {
+    name: string;
+  } | null;
+}
+
 export async function getDashboardData(): Promise<{
   stats: DashboardStats;
   recent_roasts: RecentRoast[];
@@ -110,7 +122,8 @@ export async function getDashboardData(): Promise<{
       .select(`id, pr_title, pr_number, roast_content, roast_score, created_at, repositories ( name )`)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(5)
+      .returns<RecentRoastRaw[]>();
 
     const recent_roasts: RecentRoast[] = (recent_data || []).map((item) => ({
       id: item.id,
