@@ -167,9 +167,9 @@ export default function LandingPage() {
               {/* Fake Browser Toolbar */}
               <div className="flex items-center gap-2 px-4 h-10 border-b border-white/5 bg-white/5">
                 <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/20" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/20" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/20" />
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
                 <div className="ml-4 text-xs font-mono text-foreground flex items-center gap-2">
                   <GitPullRequest className="w-3 h-3" />
@@ -245,26 +245,28 @@ export default function LandingPage() {
                   </div>
 
                   <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
-                    <p>
-                      I&apos;ve seen better code on a sticky note in a dumpster.
-                    </p>
-                    <p>
-                      1.{' '}
-                      <code className="bg-white/10 px-1 rounded text-red-200">
-                        alert()
-                      </code>{' '}
-                      in 2025? Are we building a Geocities page?
-                      <br />
-                      2.{' '}
-                      <code className="bg-white/10 px-1 rounded text-red-200">
-                        window.location.reload()
-                      </code>{' '}
-                      is the architectural equivalent of burning down the house
-                      to turn off the lights.
-                    </p>
-                    <p className="font-medium text-red-400">
-                      Requesting Changes. Do not merge until you apologize to
-                      the compiler.
+                    <p className="font-bold text-red-400">Score: 2/10</p>
+                    <div>
+                      <p className="font-bold text-xs uppercase tracking-widest text-red-500 mb-1">
+                        🚨 CRITICAL
+                      </p>
+                      <p>
+                        Line 145: Plaintext password handling detected. Do you
+                        even read the news?
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs uppercase tracking-widest text-yellow-500 mb-1">
+                        ⚠️ VIOLATIONS
+                      </p>
+                      <p>
+                        Line 150: window.location.reload() is not a state
+                        management strategy.
+                      </p>
+                    </div>
+                    <p className="font-medium text-red-400 italic">
+                      [REQUESTED CHANGES] Mention @roastbot once you&apos;ve
+                      fixed this mess.
                     </p>
                   </div>
 
@@ -335,18 +337,18 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-3 gap-6">
               <FeatureCard
                 icon={<ShieldAlert className="w-6 h-6 text-red-400" />}
-                title="Ruthless Gatekeeping"
-                description="RoastBot will block merges if it detects bad patterns, lack of types, or weak variable names."
+                title="Merge Protection"
+                description="RoastBot uses the GitHub Reviews API to explicitly reject PRs with critical violations, effectively blocking merges."
               />
               <FeatureCard
                 icon={<Code2 className="w-6 h-6 text-orange-400" />}
-                title="Context Aware"
-                description="It understands your entire codebase, which gives it more ammunition to explain why your new feature is redundant."
+                title="Conversational Roasts"
+                description="The bot listens. Mention @roastbot in your PR comments to argue, apologize, or ask for refactoring advice."
               />
               <FeatureCard
                 icon={<Zap className="w-6 h-6 text-yellow-400" />}
-                title="Instant Feedback"
-                description="Why wait for a senior engineer to wake up? Get demoralized instantly, 24/7, anywhere in the world."
+                title="Instant Autopsy"
+                description="Manual roast mode lets you pick any file from your repo for an immediate, detailed breakdown of its failures."
               />
               <div className="md:col-span-2 rounded-xl bg-linear-to-br from-white/5 to-white/2 border border-white/10 p-8 flex flex-col md:flex-row gap-8 items-center overflow-hidden group">
                 <div className="flex-1 space-y-4">

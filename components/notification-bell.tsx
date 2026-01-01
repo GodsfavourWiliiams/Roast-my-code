@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { BellIcon, CircleIcon } from "@phosphor-icons/react/dist/ssr"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,9 +20,11 @@ import Link from "next/link"
 export function NotificationBell() {
   const queryClient = useQueryClient();
   const supabase = createClient();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   // 1. Fetch Notifications
-  const { data: notifications = [], isLoading } = useQuery({
+  const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -50,36 +52,55 @@ export function NotificationBell() {
     }
   });
 
-  // 3. Realtime Subscription
+  // 3. Audio & Realtime
   useEffect(() => {
-    // Pre-load audio from local public folder
-    const audio = new Audio('/notification.wav');
-    audio.load();
+    // Initialize audio object once
+    audioRef.current = new Audio('/notification.wav');
+    audioRef.current.load();
 
     const playSound = () => {
-        audio.currentTime = 0;
-        audio.play().catch(e => console.log("Sound blocked by browser. Interaction required.", e));
+        if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(e => {
+                console.warn("[Notification] Playback blocked. User must interact with the page first.", e);
+            });
+        }
     };
 
+    // Global listener to unlock audio on first click
+    const unlockAudio = () => {
+        if (audioRef.current) {
+            // Play a silent or very short clip to unlock
+            audioRef.current.play().then(() => {
+                audioRef.current?.pause();
+                setAudioUnlocked(true);
+                window.removeEventListener('click', unlockAudio);
+                console.log("[Notification] Audio unlocked.");
+            }).catch(() => {});
+        }
+    };
+    window.addEventListener('click', unlockAudio);
+
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('notif-realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         (payload) => {
-          const receivedAt = new Date().toISOString();
-          console.log(`[Client/Notification] [${receivedAt}] New alert received via Realtime:`, payload.new);
+          console.log("[Notification] Incoming:", payload.new);
           playSound();
           toast(payload.new.title, {
             description: payload.new.message,
           });
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          // Force immediate refetch
+          queryClient.refetchQueries({ queryKey: ['notifications'] });
         }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('click', unlockAudio);
     };
   }, [supabase, queryClient]);
 
@@ -98,19 +119,12 @@ export function NotificationBell() {
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
             Notifications
-            {unreadCount > 0 && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{unreadCount} New</span>}
+            {!audioUnlocked && <span className="text-[8px] text-muted-foreground uppercase tracking-tighter animate-pulse">Click anywhere to enable sound</span>}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
         <ScrollArea className="h-80">
-            {isLoading ? (
-                <div className="p-10 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground">Loading notifications...</p>
-                    </div>
-                </div>
-            ) : notifications.length === 0 ? (
+            {notifications.length === 0 ? (
                 <div className="p-10 text-center text-sm text-muted-foreground">
                     Your record is clean. For now.
                 </div>
@@ -127,7 +141,7 @@ export function NotificationBell() {
                                     {!n.read && <CircleIcon weight="fill" size={8} className="text-primary" />}
                                     {n.title}
                                 </span>
-                                <span className="text-[10px] text-muted-foreground">
+                                <span className="text-[10px] text-muted-foreground text-nowrap ml-2">
                                     {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
