@@ -48,35 +48,32 @@ export async function POST(req: Request) {
     const persona = getPersona(settings?.persona);
     
     const BT = "```";
-    const systemPrompt = `
-      ${persona.instruction} 
-      
-      Review the code in the file '${filename}'.
-      
-      CRITICAL: You MUST provide your metrics in a JSON block at the VERY END of your response.
-      The response should be Markdown feedback, followed by the JSON block.
-      
-      JSON format:
-      ${BT}json
-      {
-        "score": number,
-        "violations": number,
-        "critical_issues": number,
-        "should_block": boolean
-      }
-      ${BT}
-      
-      STRUCTURE YOUR FEEDBACK:
-      1. BE EXTREMELY CONCISE. Use maximum 2-3 bullet points. No fluff.
-      2. Use a header "🚨 CRITICAL" for severe problems.
-      3. Use a header "⚠️ VIOLATIONS" for smaller issues.
-      4. For EVERY issue mentioned, identify the line/logic and provide this exact link to fix it: [Fix on GitHub](${editUrl})
-      5. REFACTORING: ONLY provide a "${BT}🛠️ REFACTOR" snippet if essential.
-      6. BLOCKING: Set "should_block" to true only if there are security risks, logical bugs, or absolute garbage.
-      7. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.
-    `;
+    const systemPrompt = `${persona.instruction.trim()}
 
-    // @ts-ignore
+Review the code in the file '${filename}'.
+
+CRITICAL: You MUST provide your metrics in a JSON block at the VERY END of your response.
+The response should be Markdown feedback, followed by the JSON block.
+
+JSON format:
+${BT}json
+{
+  "score": number,
+  "violations": number,
+  "critical_issues": number,
+  "should_block": boolean
+}
+${BT}
+
+STRUCTURE YOUR FEEDBACK:
+1. BE EXTREMELY CONCISE. Use maximum 2-3 bullet points. No fluff.
+2. Use a header "🚨 CRITICAL" for severe problems.
+3. Use a header "⚠️ VIOLATIONS" for smaller issues.
+4. For EVERY issue mentioned, identify the line/logic and provide this exact link to fix it: [Fix on GitHub](${editUrl})
+5. REFACTORING: ONLY provide a "${BT}🛠️ REFACTOR" snippet if essential.
+6. BLOCKING: Set "should_block" to true only if there are security risks, logical bugs, or absolute garbage.
+7. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.`;
+
     const result = streamText({
       model: google('models/gemini-flash-latest'),
       system: systemPrompt,

@@ -6,7 +6,7 @@ import { getPersona } from "@/lib/personas";
 import { App } from "octokit";
 
 interface GitHubWebhookPayload {
-  action?: string;
+  action: string;
   sender: {
     id: number;
     login: string;
@@ -179,7 +179,7 @@ async function handlePullRequest(app: App, supabase: SupabaseClient, event: GitH
     if (!repo) return NextResponse.json({ message: "Repo not monitored" });
 
     // Sync metadata
-    if (["opened", "closed", "reopened", "synchronize"].includes(action!)) {
+    if (["opened", "closed", "reopened", "synchronize"].includes(action)) {
         try {
             const octokit = await app.getInstallationOctokit(event.installation!.id);
             const [{ data: repoData }, { data: openPulls }] = await Promise.all([
@@ -199,8 +199,7 @@ async function handlePullRequest(app: App, supabase: SupabaseClient, event: GitH
         } catch (e) { console.error("Sync failed", e); }
     }
 
-    // Trigger Roast if needed
-    if (["opened", "reopened"].includes(action!)) {
+    if (["opened", "reopened"].includes(action)) {
         if (repo.status === 'Running') {
             await triggerAutomatedRoast(app, supabase, event, repo, prNumber);
         } else {

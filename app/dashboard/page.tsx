@@ -150,9 +150,44 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={score_trend}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                        <XAxis dataKey="date" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} />
+                        <XAxis 
+                          dataKey="createdAt" 
+                          stroke="#888888" 
+                          fontSize={10} 
+                          tickLine={false} 
+                          axisLine={false} 
+                          tickFormatter={(value) => {
+                            return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(value));
+                          }}
+                        />
                         <YAxis stroke="#888888" fontSize={10} tickLine={false} axisLine={false} domain={[0, 10]} />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }} />
+                        <RechartsTooltip 
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const dateStr = new Intl.DateTimeFormat('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              }).format(new Date(payload[0].payload.createdAt));
+                              
+                              return (
+                                <div className="rounded-lg border border-border bg-card p-2 shadow-sm">
+                                  <div className="mb-1 text-xs font-bold text-muted-foreground">
+                                    {dateStr}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-primary" />
+                                    <span className="text-sm font-bold text-foreground">
+                                      Score: {payload[0].value}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            }
+                            return null
+                          }}
+                        />
                         <Line type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary)', r: 4 }} />
                     </LineChart>
                 </ResponsiveContainer>

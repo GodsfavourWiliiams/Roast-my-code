@@ -14,6 +14,20 @@ export interface GlobalRoast {
   repo_name: string;
 }
 
+interface RawRoast {
+  id: number;
+  pr_title: string | null;
+  pr_number: number | null;
+  roast_content: string;
+  roast_score: number | null;
+  violations_count: number;
+  critical_issues_count: number;
+  created_at: string;
+  repositories: {
+    name: string;
+  } | null;
+}
+
 export async function getGlobalRoastHistory(params: { 
   search?: string; 
   filter?: string;
@@ -60,14 +74,14 @@ export async function getGlobalRoastHistory(params: {
     query = query.or(`pr_title.ilike.%${search}%,repositories.name.ilike.%${search}%`);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await query.returns<RawRoast[]>();
 
   if (error) {
     console.error('Error fetching global history:', error);
     return { error: error.message, roasts: [] };
   }
 
-  const formattedRoasts: GlobalRoast[] = (data || []).map((item: any) => {
+  const formattedRoasts: GlobalRoast[] = (data || []).map((item) => {
     const repo = Array.isArray(item.repositories) ? item.repositories[0] : item.repositories;
     return {
       ...item,

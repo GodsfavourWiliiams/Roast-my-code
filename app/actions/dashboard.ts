@@ -21,7 +21,7 @@ export interface RecentRoast {
 }
 
 export interface ScoreTrend {
-  date: string;
+  createdAt: string;
   score: number;
 }
 
@@ -29,6 +29,28 @@ export interface RepoCrime {
   name: string;
   violations: number;
   critical: number;
+}
+
+interface RoastData {
+  violations_count: number | null;
+  critical_issues_count: number | null;
+  roast_score: number | null;
+  created_at: string;
+  repositories: {
+    name: string;
+  } | null;
+}
+
+interface RecentRoastRaw {
+  id: number;
+  pr_title: string | null;
+  pr_number: number | null;
+  roast_content: string;
+  roast_score: number | null;
+  created_at: string;
+  repositories: {
+    name: string;
+  } | null;
 }
 
 export async function getDashboardData(): Promise<{
@@ -41,7 +63,16 @@ export async function getDashboardData(): Promise<{
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return { stats: {} as any, recent_roasts: [], score_trend: [], repo_crimes: [], error: 'Not authenticated' };
+  const emptyStats: DashboardStats = {
+    egos_bruised: 0,
+    total_violations: 0,
+    critical_issues: 0,
+    avg_score: "0.0",
+    active_repos: 0,
+    hostages: 0
+  };
+
+  if (!user) return { stats: emptyStats, recent_roasts: [], score_trend: [], repo_crimes: [], error: 'Not authenticated' };
 
   try {
     // 1. Fetch Overview Stats & Analytics in one unified query
@@ -52,7 +83,9 @@ export async function getDashboardData(): Promise<{
     const { data: roast_data_unified } = await supabase
         .from('roasts')
         .select('violations_count, critical_issues_count, roast_score, created_at, repositories ( name )')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .returns<RoastData[]>();
 
     let total_violations = 0;
     let critical_issues = 0;
@@ -71,7 +104,7 @@ export async function getDashboardData(): Promise<{
         avg_score = (totals.score_sum / roast_data_unified.length).toFixed(1);
 
         // Calculate Crimes per Repo using the same data
-        roast_data_unified.forEach((item: any) => {
+        roast_data_unified.forEach((item) => {
             const repo_name = item.repositories?.name || 'Unknown';
             if (!repo_map[repo_name]) {
                 repo_map[repo_name] = { name: repo_name, violations: 0, critical: 0 };
@@ -87,9 +120,10 @@ export async function getDashboardData(): Promise<{
       .select(`id, pr_title, pr_number, roast_content, roast_score, created_at, repositories ( name )`)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(5)
+      .returns<RecentRoastRaw[]>();
 
-    const recent_roasts: RecentRoast[] = (recent_data || []).map((item: any) => ({
+    const recent_roasts: RecentRoast[] = (recent_data || []).map((item) => ({
       id: item.id,
       title: item.pr_title || (item.pr_number ? `PR #${item.pr_number}` : 'Manual Roast'),
       repo_name: item.repositories?.name || 'Unknown Repo',
@@ -99,8 +133,8 @@ export async function getDashboardData(): Promise<{
     }));
 
     const score_trend: ScoreTrend[] = (roast_data_unified || []).map(r => ({
-      date: new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      score: r.roast_score || 0
+      createdAt: r.created_at,
+      score: r.roast_score || 0,
     }));
 
     return {
@@ -112,6 +146,6 @@ export async function getDashboardData(): Promise<{
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    return { stats: {} as any, recent_roasts: [], score_trend: [], repo_crimes: [], error: message };
+    return { stats: emptyStats, recent_roasts: [], score_trend: [], repo_crimes: [], error: message };
   }
 }

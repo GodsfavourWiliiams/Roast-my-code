@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 
 export interface ScoreTrend {
-  date: string;
+  createdAt: string;
   score: number;
 }
 
@@ -11,6 +11,14 @@ export interface RepoCrime {
   name: string;
   violations: number;
   critical: number;
+}
+
+interface CrimeData {
+  violations_count: number | null;
+  critical_issues_count: number | null;
+  repositories: {
+    name: string;
+  } | null;
 }
 
 export async function getAnalyticsData(): Promise<{
@@ -33,8 +41,8 @@ export async function getAnalyticsData(): Promise<{
   if (trendError) return { scoreTrend: [], repoCrimes: [], error: trendError.message };
 
   const scoreTrend: ScoreTrend[] = (trendData || []).map(r => ({
-    date: new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    score: r.roast_score || 0
+    createdAt: r.created_at,
+    score: r.roast_score || 0,
   }));
 
   // 2. Fetch Repo Crimes (Violations grouped by repo)
@@ -47,13 +55,14 @@ export async function getAnalyticsData(): Promise<{
         name
       )
     `)
-    .eq('user_id', user.id);
+    .eq('user_id', user.id)
+    .returns<CrimeData[]>();
 
   if (crimesError) return { scoreTrend: [], repoCrimes: [], error: crimesError.message };
 
   // Group by repo name
   const repoMap: Record<string, RepoCrime> = {};
-  (crimesData || []).forEach((item: any) => {
+  (crimesData || []).forEach((item) => {
     const repoName = item.repositories?.name || 'Unknown';
     if (!repoMap[repoName]) {
       repoMap[repoName] = { name: repoName, violations: 0, critical: 0 };
