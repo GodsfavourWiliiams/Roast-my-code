@@ -49,7 +49,9 @@ export async function POST(req: Request) {
     const BT = "```";
     const systemPrompt = `${persona.instruction.trim()}
 
-Review the code in the file '${filename}'.
+You are reviewing a single file for manual review. Review the entire file content provided below.
+
+NOTE: This is a manual file review (not a PR diff). You are reviewing the complete current state of the file.
 
 CRITICAL: You MUST provide your metrics in a JSON block at the VERY END of your response.
 The response should be Markdown feedback, followed by the JSON block.
@@ -76,7 +78,7 @@ STRUCTURE YOUR FEEDBACK:
     const result = streamText({
       model: google('models/gemini-flash-latest'),
       system: systemPrompt,
-      prompt: `Review this code:\n\n${code}`,
+      prompt: `Review the file '${filename}':\n\n${code}`,
       onFinish: async ({ text }) => {
         const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
         let score = null;
