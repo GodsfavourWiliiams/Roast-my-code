@@ -94,7 +94,6 @@ export async function getDashboardData(): Promise<{
     const repo_map: Record<string, RepoCrime> = {};
 
     if (roast_data_unified?.length) {
-        console.log('[Dashboard] Raw Roast Data:', roast_data_unified.map(r => ({ id: r.created_at, score: r.roast_score })));
         const totals = roast_data_unified.reduce((acc, curr) => ({
             violations: acc.violations + (curr.violations_count || 0),
             critical: acc.critical + (curr.critical_issues_count || 0),
@@ -135,9 +134,9 @@ export async function getDashboardData(): Promise<{
     }));
 
     const score_trend: ScoreTrend[] = (roast_data_unified || []).map(r => ({
-      date: new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       score: r.roast_score || 0,
-      timestamp: new Date(r.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date(r.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }));
 
     return {
