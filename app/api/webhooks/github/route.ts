@@ -293,145 +293,212 @@ async function triggerAutomatedRoast(
     if (!settings?.installation_id) return;
 
     try {
-      const octokit = await app.getInstallationOctokit(settings.installation_id);
-      
+      const octokit = await app.getInstallationOctokit(
+        settings.installation_id
+      );
+
       let diff: string;
       let was_truncated = false;
-      
+
       if (reviewLatestCommitOnly) {
         // Get the latest commit from the PR
-        const { data: prData } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
-          owner: event.repository.owner.login,
-          repo: event.repository.name,
-          pull_number: prNumber,
-        });
-        
-        // Get commits for this PR
-        const { data: commits } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/commits', {
-          owner: event.repository.owner.login,
-          repo: event.repository.name,
-          pull_number: prNumber,
-          per_page: 1, // Get only the latest commit
-        });
-        
-        if (!commits || commits.length === 0) {
-          // No commits, respond that there are no changes
-          await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+        const { data: prData } = await octokit.request(
+          'GET /repos/{owner}/{repo}/pulls/{pull_number}',
+          {
             owner: event.repository.owner.login,
             repo: event.repository.name,
-            issue_number: prNumber,
-            body: `## 💀 RoastBot Autopsy Report\n\n**No changes detected.**\n\nYou asked me to review, but there are no new commits since the last review. If you've made changes, make sure you've pushed them to this PR.\n\n---\n*Sent with attitude by RoastBot*`,
-          });
+            pull_number: prNumber,
+          }
+        );
+
+        // Get commits for this PR
+        const { data: commits } = await octokit.request(
+          'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits',
+          {
+            owner: event.repository.owner.login,
+            repo: event.repository.name,
+            pull_number: prNumber,
+            per_page: 1, // Get only the latest commit
+          }
+        );
+
+        if (!commits || commits.length === 0) {
+          // No commits, respond that there are no changes
+          await octokit.request(
+            'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
+            {
+              owner: event.repository.owner.login,
+              repo: event.repository.name,
+              issue_number: prNumber,
+              body: `## 💀 RoastBot Autopsy Report\n\n**No changes detected.**\n\nYou asked me to review, but there are no new commits since the last review. If you've made changes, make sure you've pushed them to this PR.\n\n---\n*Sent with attitude by RoastBot*`,
+            }
+          );
           return;
         }
-        
+
         const latestCommit = commits[0];
         // Get the diff for just this commit
-        const { data: commitData } = await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}', {
-          owner: event.repository.owner.login,
-          repo: event.repository.name,
-          ref: latestCommit.sha,
-          headers: { accept: 'application/vnd.github.v3.diff' },
-        });
-        
+        const { data: commitData } = await octokit.request(
+          'GET /repos/{owner}/{repo}/commits/{ref}',
+          {
+            owner: event.repository.owner.login,
+            repo: event.repository.name,
+            ref: latestCommit.sha,
+            headers: { accept: 'application/vnd.github.v3.diff' },
+          }
+        );
+
         diff = commitData as unknown as string;
-        
+
         // Check if diff has actual changes (not just metadata)
         // Look for lines that start with + or - but not +++ or --- (which are file headers)
         const diffLines = diff ? diff.split('\n') : [];
-        const hasActualChanges = diffLines.some(line => {
+        const hasActualChanges = diffLines.some((line) => {
           const trimmed = line.trim();
-          return (trimmed.startsWith('+') && !trimmed.startsWith('+++')) || 
-                 (trimmed.startsWith('-') && !trimmed.startsWith('---'));
+          return (
+            (trimmed.startsWith('+') && !trimmed.startsWith('+++')) ||
+            (trimmed.startsWith('-') && !trimmed.startsWith('---'))
+          );
         });
-        
+
         if (!hasActualChanges || !diff || diff.trim().length === 0) {
           // No actual code changes detected
-          await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
-            owner: event.repository.owner.login,
-            repo: event.repository.name,
-            issue_number: prNumber,
-            body: `## 💀 RoastBot Autopsy Report\n\n**No code changes detected in the latest commit.**\n\nI checked commit \`${latestCommit.sha.substring(0, 7)}\` and found no actual code modifications. If you requested changes based on my previous review, make sure you've actually modified the code, not just committed empty changes or metadata.\n\n---\n*Sent with attitude by RoastBot*`,
-          });
+          await octokit.request(
+            'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
+            {
+              owner: event.repository.owner.login,
+              repo: event.repository.name,
+              issue_number: prNumber,
+              body: `## 💀 RoastBot Autopsy Report\n\n**No code changes detected in the latest commit.**\n\nI checked commit \`${latestCommit.sha.substring(
+                0,
+                7
+              )}\` and found no actual code modifications. If you requested changes based on my previous review, make sure you've actually modified the code, not just committed empty changes or metadata.\n\n---\n*Sent with attitude by RoastBot*`,
+            }
+          );
           return;
         }
       } else {
         // Get full PR diff (for automatic reviews on PR open)
-        const { data: rawDiff } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
-          owner: event.repository.owner.login,
-          repo: event.repository.name,
-          pull_number: prNumber,
-          headers: { accept: 'application/vnd.github.v3.diff' },
-        });
+        const { data: rawDiff } = await octokit.request(
+          'GET /repos/{owner}/{repo}/pulls/{pull_number}',
+          {
+            owner: event.repository.owner.login,
+            repo: event.repository.name,
+            pull_number: prNumber,
+            headers: { accept: 'application/vnd.github.v3.diff' },
+          }
+        );
         diff = rawDiff as unknown as string;
       }
 
       const MAX_DIFF_SIZE = 100000;
-      const processedCode = diff.length > MAX_DIFF_SIZE ? diff.substring(0, MAX_DIFF_SIZE) : diff;
+      const processedCode =
+        diff.length > MAX_DIFF_SIZE ? diff.substring(0, MAX_DIFF_SIZE) : diff;
       was_truncated = diff.length > MAX_DIFF_SIZE;
 
       const roast = await processAutomatedRoast({
-          repo_id: repo.id,
-          user_id: repo.user_id,
-          pr_number: prNumber,
-          pr_title: event.pull_request?.title || event.issue?.title || "PR",
-          repo_full_name: event.repository.full_name,
-          code: processedCode,
-          was_truncated,
-          isLatestCommitOnly: reviewLatestCommitOnly,
+        repo_id: repo.id,
+        user_id: repo.user_id,
+        pr_number: prNumber,
+        pr_title: event.pull_request?.title || event.issue?.title || 'PR',
+        repo_full_name: event.repository.full_name,
+        code: processedCode,
+        was_truncated,
+        isLatestCommitOnly: reviewLatestCommitOnly,
       });
 
       // Determine review event and add blocking message if needed
       const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';
       let reviewBody = `## 💀 RoastBot Autopsy Report\n\n${roast.text}`;
-      
+
+      // Get PR data to check branch protection and get commit SHA
+      const prData = await octokit.request(
+        'GET /repos/{owner}/{repo}/pulls/{pull_number}',
+        {
+          owner: event.repository.owner.login,
+          repo: event.repository.name,
+          pull_number: prNumber,
+        }
+      );
+
+      // Check if branch protection is enabled (only if we're blocking)
+      let branchProtectionEnabled = false;
       if (roast.should_block) {
-        reviewBody += `\n\n**🛑 BLOCKING: This PR cannot be merged until the critical issues above are fixed.**\n\nYou must address these issues before merging. The merge button will be disabled until you fix them and I approve the changes.`;
+        try {
+          const baseBranch = prData.data.base.ref;
+          await octokit.request(
+            'GET /repos/{owner}/{repo}/branches/{branch}/protection',
+            {
+              owner: event.repository.owner.login,
+              repo: event.repository.name,
+              branch: baseBranch,
+            }
+          );
+          branchProtectionEnabled = true;
+        } catch {
+          // 404 means branch protection is not enabled
+          branchProtectionEnabled = false;
+        }
+      }
+
+      if (roast.should_block) {
+        reviewBody += `\n\n**🛑 BLOCKING: This PR contains critical issues and should NOT be merged until they are fixed.**`;
+
+        // Warn if branch protection is off
+        if (!branchProtectionEnabled) {
+          reviewBody += `\n\n⚠️ **Note:** Branch protection is not enabled for this repository. To allow RoastBot to automatically block merges when critical issues are found, enable branch protection rules that require reviews. Go to Settings → Branches → Add rule for your default branch and enable "Require pull request reviews before merging".`;
+        }
       } else if (roast.violations > 0 || roast.critical > 0) {
         reviewBody += `\n\n**⚠️ You can merge, but I recommend fixing these issues first.**`;
       }
-      
+
       reviewBody += `\n\n---\n*Sent with attitude by RoastBot*`;
-      
+
       // Submit the review - REQUEST_CHANGES will block merge if branch protection requires reviews
-      // Include commit_id to ensure the review is properly associated with the latest commit
-      const prData = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
-        owner: event.repository.owner.login,
-        repo: event.repository.name,
-        pull_number: prNumber,
-      });
-      
-      const reviewResponse = await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+      const reviewResponse = await octokit.request(
+        'POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews',
+        {
           owner: event.repository.owner.login,
           repo: event.repository.name,
           pull_number: prNumber,
           body: reviewBody,
           event: reviewEvent,
-          commit_id: prData.data.head.sha // Associate review with the latest commit
-      });
-      
+          commit_id: prData.data.head.sha, // Associate review with the latest commit
+        }
+      );
+
       // If we're requesting changes, dismiss any existing approvals to ensure the PR is blocked
       if (roast.should_block && reviewResponse.data.id) {
         try {
           // Get existing reviews
-          const { data: reviews } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
-            owner: event.repository.owner.login,
-            repo: event.repository.name,
-            pull_number: prNumber,
-          });
-          
+          const { data: reviews } = await octokit.request(
+            'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews',
+            {
+              owner: event.repository.owner.login,
+              repo: event.repository.name,
+              pull_number: prNumber,
+            }
+          );
+
           // Dismiss any existing APPROVE reviews to ensure REQUEST_CHANGES blocks the merge
           // This ensures that our REQUEST_CHANGES review takes precedence
           for (const review of reviews) {
-            if (review.state === 'APPROVED' && review.id !== reviewResponse.data.id) {
+            if (
+              review.state === 'APPROVED' &&
+              review.id !== reviewResponse.data.id
+            ) {
               try {
-                await octokit.request('PUT /repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/dismissals', {
-                  owner: event.repository.owner.login,
-                  repo: event.repository.name,
-                  pull_number: prNumber,
-                  review_id: review.id,
-                  message: 'Dismissed due to new critical issues found that must be fixed before merging.'
-                });
+                await octokit.request(
+                  'PUT /repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/dismissals',
+                  {
+                    owner: event.repository.owner.login,
+                    repo: event.repository.name,
+                    pull_number: prNumber,
+                    review_id: review.id,
+                    message:
+                      'Dismissed due to new critical issues found that must be fixed before merging.',
+                  }
+                );
               } catch (e) {
                 // Ignore errors - review might not be dismissable or we might not have permission
                 // REQUEST_CHANGES should still block if branch protection requires reviews
@@ -440,20 +507,24 @@ async function triggerAutomatedRoast(
           }
         } catch (e) {
           // If we can't dismiss reviews, continue - REQUEST_CHANGES should still block
-          console.error('[GitHub/Webhook] Failed to dismiss existing approvals:', e);
+          console.error(
+            '[GitHub/Webhook] Failed to dismiss existing approvals:',
+            e
+          );
         }
       }
 
       await supabaseAdmin.from('notifications').insert({
-          user_id: repo.user_id,
-          title: roast.should_block ? '🛑 PR Merge Blocked' : '✅ Roast Completed',
-          message: roast.should_block 
-              ? `PR #${prNumber} in ${event.repository.name} has critical issues and cannot be merged.` 
-              : `PR #${prNumber} in ${event.repository.name} has been reviewed. Score: ${roast.score}/10`,
-          type: roast.should_block ? 'error' : 'success',
-          link: `/dashboard/repos/${event.repository.name}`
+        user_id: repo.user_id,
+        title: roast.should_block
+          ? '🛑 PR Merge Blocked'
+          : '✅ Roast Completed',
+        message: roast.should_block
+          ? `PR #${prNumber} in ${event.repository.name} has critical issues and cannot be merged.`
+          : `PR #${prNumber} in ${event.repository.name} has been reviewed. Score: ${roast.score}/10`,
+        type: roast.should_block ? 'error' : 'success',
+        link: `/dashboard/repos/${event.repository.name}`,
       });
-
     } catch (e: unknown) {
       console.error('[GitHub/Webhook] Roast execution failed:', e);
     }
