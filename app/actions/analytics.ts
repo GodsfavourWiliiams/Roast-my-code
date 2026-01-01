@@ -14,6 +14,14 @@ export interface RepoCrime {
   critical: number;
 }
 
+interface CrimeData {
+  violations_count: number | null;
+  critical_issues_count: number | null;
+  repositories: {
+    name: string;
+  } | null;
+}
+
 export async function getAnalyticsData(): Promise<{
   scoreTrend: ScoreTrend[];
   repoCrimes: RepoCrime[];
@@ -49,13 +57,14 @@ export async function getAnalyticsData(): Promise<{
         name
       )
     `)
-    .eq('user_id', user.id);
+    .eq('user_id', user.id)
+    .returns<CrimeData[]>();
 
   if (crimesError) return { scoreTrend: [], repoCrimes: [], error: crimesError.message };
 
   // Group by repo name
   const repoMap: Record<string, RepoCrime> = {};
-  (crimesData || []).forEach((item: any) => {
+  (crimesData || []).forEach((item) => {
     const repoName = item.repositories?.name || 'Unknown';
     if (!repoMap[repoName]) {
       repoMap[repoName] = { name: repoName, violations: 0, critical: 0 };

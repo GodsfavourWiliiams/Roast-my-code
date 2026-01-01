@@ -32,6 +32,16 @@ export interface RepoCrime {
   critical: number;
 }
 
+interface RoastData {
+  violations_count: number | null;
+  critical_issues_count: number | null;
+  roast_score: number | null;
+  created_at: string;
+  repositories: {
+    name: string;
+  } | null;
+}
+
 export async function getDashboardData(): Promise<{
   stats: DashboardStats;
   recent_roasts: RecentRoast[];
@@ -42,7 +52,16 @@ export async function getDashboardData(): Promise<{
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return { stats: {} as any, recent_roasts: [], score_trend: [], repo_crimes: [], error: 'Not authenticated' };
+  const emptyStats: DashboardStats = {
+    egos_bruised: 0,
+    total_violations: 0,
+    critical_issues: 0,
+    avg_score: "0.0",
+    active_repos: 0,
+    hostages: 0
+  };
+
+  if (!user) return { stats: emptyStats, recent_roasts: [], score_trend: [], repo_crimes: [], error: 'Not authenticated' };
 
   try {
     // 1. Fetch Overview Stats & Analytics in one unified query
@@ -54,7 +73,8 @@ export async function getDashboardData(): Promise<{
         .from('roasts')
         .select('violations_count, critical_issues_count, roast_score, created_at, repositories ( name )')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .returns<RoastData[]>();
 
     let total_violations = 0;
     let critical_issues = 0;
@@ -74,7 +94,7 @@ export async function getDashboardData(): Promise<{
         avg_score = (totals.score_sum / roast_data_unified.length).toFixed(1);
 
         // Calculate Crimes per Repo using the same data
-        roast_data_unified.forEach((item: any) => {
+        roast_data_unified.forEach((item) => {
             const repo_name = item.repositories?.name || 'Unknown';
             if (!repo_map[repo_name]) {
                 repo_map[repo_name] = { name: repo_name, violations: 0, critical: 0 };
@@ -92,7 +112,7 @@ export async function getDashboardData(): Promise<{
       .order('created_at', { ascending: false })
       .limit(5);
 
-    const recent_roasts: RecentRoast[] = (recent_data || []).map((item: any) => ({
+    const recent_roasts: RecentRoast[] = (recent_data || []).map((item) => ({
       id: item.id,
       title: item.pr_title || (item.pr_number ? `PR #${item.pr_number}` : 'Manual Roast'),
       repo_name: item.repositories?.name || 'Unknown Repo',
@@ -116,6 +136,6 @@ export async function getDashboardData(): Promise<{
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    return { stats: {} as any, recent_roasts: [], score_trend: [], repo_crimes: [], error: message };
+    return { stats: emptyStats, recent_roasts: [], score_trend: [], repo_crimes: [], error: message };
   }
 }
