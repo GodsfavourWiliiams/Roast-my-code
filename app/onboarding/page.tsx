@@ -97,7 +97,7 @@ export default function OnboardingPage() {
             {!isInstalled && (
               <Button size="sm" asChild>
                 <a
-                  href={ROUTES.EXTERNAL.GITHUB_APP_INSTALL('roastbot-godsfavourwilliams')}
+                  href={ROUTES.EXTERNAL.GITHUB_APP_INITIAL_INSTALL('roastbot-godsfavourwilliams')}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

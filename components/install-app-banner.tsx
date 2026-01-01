@@ -18,7 +18,7 @@ export function InstallAppBanner() {
   if (isLoading || !settings || settings.installation_id) return null;
 
   // Use public installation URL format (works for all users, not just app owner)
-  const INSTALL_URL = ROUTES.EXTERNAL.GITHUB_APP_INSTALL('roastbot-godsfavourwilliams');
+  const INSTALL_URL = ROUTES.EXTERNAL.GITHUB_APP_INITIAL_INSTALL('roastbot-godsfavourwilliams');
 
   return (
     <div className="bg-yellow-500/10 border-b border-yellow-500/20 p-3">

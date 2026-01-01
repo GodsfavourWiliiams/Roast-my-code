@@ -422,7 +422,7 @@ export default function SettingsPage() {
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <a
-                    href={`https://github.com/settings/installations/${settings.installation_id}`}
+                    href={ROUTES.EXTERNAL.GITHUB_APP_MANAGE_INSTALL(settings.installation_id)}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -441,7 +441,7 @@ export default function SettingsPage() {
                   </div>
                   <Button size="sm" asChild>
                     <a
-                      href={ROUTES.EXTERNAL.GITHUB_APP_INSTALL('roastbot-godsfavourwilliams')}
+                      href={ROUTES.EXTERNAL.GITHUB_APP_INITIAL_INSTALL('roastbot-godsfavourwilliams')}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
