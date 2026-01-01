@@ -111,9 +111,8 @@ export async function POST(req: Request) {
         }
 
         if (action === "deleted") {
-            console.log(`[GitHub/Webhook] Repo deleted: ${event.repository.full_name}`);
+            console.log(`[GitHub/Webhook] Repo deleted on GitHub: ${event.repository.full_name}`);
             
-            // Get the user ID before deleting to send notification
             const { data: repo } = await supabaseAdmin
                 .from('repositories')
                 .select('user_id, name')
@@ -124,15 +123,18 @@ export async function POST(req: Request) {
                 // Notify User
                 await supabaseAdmin.from('notifications').insert({
                     user_id: repo.user_id,
-                    title: 'Repository Deleted',
-                    message: `The repository ${repo.name} was deleted on GitHub. It has been removed from RoastBot.`,
-                    type: 'warning'
+                    title: 'Repository Deleted on GitHub',
+                    message: `The repository ${repo.name} was deleted on GitHub. Analysis has been stopped.`,
+                    type: 'error'
                 });
 
-                // Delete from DB
+                // Mark as Deleted in DB instead of physical delete
                 await supabaseAdmin
                     .from('repositories')
-                    .delete()
+                    .update({ 
+                        status: 'Deleted',
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('github_id', repoGithubId);
             }
         }
@@ -158,25 +160,25 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Repo not monitored" });
       }
 
-      // Update Repo Metadata and PR Count on Open/Close/Sync
+      // 2. Update Repo Metadata and PR Count on Open/Close/Sync (DO THIS ALWAYS)
       if (action === "opened" || action === "closed" || action === "reopened" || action === "synchronize") {
           console.log(`[GitHub/Webhook] Syncing metadata and PR count for ${repo.id}. Action: ${action}`);
           
           try {
               const octokit = await app.getInstallationOctokit(event.installation!.id);
               
-              // 1. Fetch fresh repo details
+              // Fetch fresh repo details
               const { data: repoData } = await octokit.request('GET /repos/{owner}/{repo}', {
                   owner: event.repository.owner.login,
                   repo: event.repository.name,
               });
 
-              // 2. Fetch fresh open PR count
+              // Fetch fresh open PR count
               const { data: openPulls } = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
                   owner: event.repository.owner.login,
                   repo: event.repository.name,
                   state: 'open',
-                  per_page: 100 // Get up to 100 open PRs
+                  per_page: 100 
               });
               
               const prCount = openPulls.length;
@@ -200,22 +202,23 @@ export async function POST(req: Request) {
           }
       }
 
+      // 3. Automated Roasting (ONLY IF RUNNING)
       if (action === "opened" || action === "synchronize" || action === "reopened") {
         if (repo.status !== 'Running') {
-          console.log(`[GitHub/Webhook] Repo is Paused. Ignoring.`);
+          console.log(`[GitHub/Webhook] Repo status is ${repo.status}. Ignoring roast trigger.`);
 
-          // Send Notification (Only on OPEN, not every sync to avoid spam)
-          if (action === 'opened') {
+          // Send Notification (Only on OPEN or REOPEN to avoid spam)
+          if (action === 'opened' || action === 'reopened') {
             await supabaseAdmin.from('notifications').insert({
               user_id: repo.user_id,
               title: 'Roast Skipped',
-              message: `A new PR (#${prNumber}) was opened in ${event.repository.full_name}, but the bot is Paused.`,
-              type: 'info',
+              message: `A PR (#${prNumber}) was ${action} in ${event.repository.full_name}, but the bot is currently ${repo.status}. Unpause it to resume analysis.`,
+              type: 'warning',
               link: `/dashboard/repos/${event.repository.name}`,
             });
           }
 
-          return NextResponse.json({ message: 'Repo paused' });
+          return NextResponse.json({ message: `Repo ${repo.status}` });
         }
 
         console.log(`[GitHub/Webhook] Triggering Roast for PR #${prNumber}...`);

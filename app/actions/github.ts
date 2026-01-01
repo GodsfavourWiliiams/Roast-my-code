@@ -402,7 +402,7 @@ export interface SavedRepo {
   url: string;
   default_branch: string;
   private: boolean;
-  status: 'Running' | 'Paused' | 'Idle';
+  status: 'Running' | 'Paused' | 'Idle' | 'Deleted';
   open_prs_count: number;
   created_at: string;
   updated_at: string;
