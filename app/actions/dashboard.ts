@@ -21,9 +21,8 @@ export interface RecentRoast {
 }
 
 export interface ScoreTrend {
-  date: string;
+  createdAt: string;
   score: number;
-  timestamp: string;
 }
 
 export interface RepoCrime {
@@ -134,9 +133,8 @@ export async function getDashboardData(): Promise<{
     }));
 
     const score_trend: ScoreTrend[] = (roast_data_unified || []).map(r => ({
-      date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      createdAt: r.created_at,
       score: r.roast_score || 0,
-      timestamp: new Date(r.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }));
 
     return {

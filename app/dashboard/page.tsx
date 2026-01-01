@@ -151,25 +151,30 @@ export default function DashboardPage() {
                     <LineChart data={score_trend}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                         <XAxis 
-                          dataKey="timestamp" 
+                          dataKey="createdAt" 
                           stroke="#888888" 
                           fontSize={10} 
                           tickLine={false} 
                           axisLine={false} 
                           tickFormatter={(value) => {
-                            // Extract just the date part "Jan 1" from the full timestamp string
-                            // Assuming format "Jan 1, 10:00 AM" or similar from toLocaleString
-                            return value.split(',')[0];
+                            return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(value));
                           }}
                         />
                         <YAxis stroke="#888888" fontSize={10} tickLine={false} axisLine={false} domain={[0, 10]} />
                         <RechartsTooltip 
                           content={({ active, payload }) => {
                             if (active && payload && payload.length) {
+                              const dateStr = new Intl.DateTimeFormat('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              }).format(new Date(payload[0].payload.createdAt));
+                              
                               return (
                                 <div className="rounded-lg border border-border bg-card p-2 shadow-sm">
                                   <div className="mb-1 text-xs font-bold text-muted-foreground">
-                                    {payload[0].payload.timestamp}
+                                    {dateStr}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <span className="h-2 w-2 rounded-full bg-primary" />
