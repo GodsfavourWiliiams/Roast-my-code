@@ -2,19 +2,22 @@ import { getGitHubApp } from "@/lib/github-app";
 import { NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { processAutomatedRoast, processReply } from "@/app/actions/roast-logic";
+import { getPersona } from "@/lib/personas";
+import { App } from "octokit";
 
 interface GitHubWebhookPayload {
   action?: string;
   sender: {
     id: number;
+    login: string;
   };
   installation?: {
     id: number;
   };
   repository?: {
     id: number;
-    full_name: string;
     name: string;
+    full_name: string;
     description: string | null;
     html_url: string;
     owner: {
@@ -35,6 +38,7 @@ interface GitHubWebhookPayload {
   };
   issue?: {
     number: number;
+    title: string;
     pull_request?: object;
   };
 }
@@ -50,11 +54,10 @@ export async function POST(req: Request) {
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
-        console.error("[GitHub/Webhook] Error: SUPABASE_SERVICE_ROLE_KEY is missing. Webhook cannot update database.");
+        console.error("[GitHub/Webhook] Error: SUPABASE_SERVICE_ROLE_KEY is missing.");
         return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 });
     }
 
-    // Initialize admin client inside handler to avoid build-time environment issues
     const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         serviceRoleKey
@@ -64,300 +67,261 @@ export async function POST(req: Request) {
     await app.webhooks.verify(payload, signature);
     const event = JSON.parse(payload) as GitHubWebhookPayload;
 
-    // Handle User Replies
-    if (eventName === "issue_comment" && event.action === "created" && event.issue?.pull_request && event.comment) {
-        const isMentioned = event.comment.body.toLowerCase().includes('roastbot');
-        const isNotBot = event.comment.user.login !== 'roast-bot[bot]';
-
-        if (isMentioned && isNotBot) {
-            console.log(`[GitHub/Webhook] Bot mentioned in comment. Evaluating intent...`);
-            const repoGithubId = event.repository!.id;
-            const prNumber = event.issue.number;
-
-            const { data: repo } = await supabaseAdmin
-                .from('repositories')
-                .select('id, user_id, status')
-                .eq('github_id', repoGithubId)
-                .single();
-
-            if (repo) {
-                const body = event.comment.body.toLowerCase();
-                const wantsRoast = body.includes('ready') || body.includes('fixed') || body.includes('done') || body.includes('roast');
-
-                if (wantsRoast) {
-                    console.log(`[GitHub/Webhook] User requested a re-roast for PR #${prNumber}.`);
-                    await triggerAutomatedRoast(app, supabaseAdmin, event, repo, prNumber);
-                } else {
-                    const reply = await processReply({
-                        user_id: repo.user_id,
-                        repo_name: event.repository!.full_name,
-                        pr_number: prNumber,
-                        user_comment: event.comment!.body,
-                        user_login: event.comment!.user.login
-                    });
-
-                    const octokit = await app.getInstallationOctokit(event.installation!.id);
-                    await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
-                        owner: event.repository!.owner.login,
-                        repo: event.repository!.name,
-                        issue_number: prNumber,
-                        body: reply,
-                    });
-                }
-            }
-        }
+    // Route to specialized handlers
+    switch (eventName) {
+        case "issue_comment":
+            return handleIssueComment(app, supabaseAdmin, event);
+        case "pull_request":
+            return handlePullRequest(app, supabaseAdmin, event);
+        case "installation":
+            return handleInstallation(supabaseAdmin, event);
+        case "repository":
+            return handleRepositoryUpdate(supabaseAdmin, event);
+        default:
+            return NextResponse.json({ message: "Ignored event" });
     }
-
-    // Handle App Installation
-    if (eventName === "installation" && event.installation) {
-      const githubId = event.sender.id;
-      const installationId = event.installation.id;
-      const action = event.action;
-
-      if (action === "created") {
-        console.log(`[GitHub/Webhook] App installed by GitHub User ${githubId}. ID: ${installationId}`);
-        const { error } = await supabaseAdmin
-          .from('user_settings')
-          .update({ installation_id: installationId })
-          .eq('github_id', githubId);
-          
-        if (error) console.error("Failed to link installation:", error);
-      } 
-      
-      if (action === "deleted") {
-        console.log(`[GitHub/Webhook] App uninstalled by GitHub User ${githubId}`);
-        const { error } = await supabaseAdmin
-          .from('user_settings')
-          .update({ installation_id: null, suspended: false })
-          .eq('github_id', githubId);
-
-        if (error) console.error("Failed to unlink installation:", error);
-      }
-
-      if (action === "suspend") {
-        console.log(`[GitHub/Webhook] App suspended by GitHub User ${githubId}`);
-        await supabaseAdmin.from('user_settings').update({ suspended: true }).eq('github_id', githubId);
-      }
-
-      if (action === "unsuspend") {
-        console.log(`[GitHub/Webhook] App unsuspended by GitHub User ${githubId}`);
-        await supabaseAdmin.from('user_settings').update({ suspended: false }).eq('github_id', githubId);
-      }
-    }
-
-    // Handle Repository Events (Rename, Delete)
-    if (eventName === "repository" && event.repository) {
-        const action = event.action;
-        const repoGithubId = event.repository.id;
-
-        if (action === "renamed" || action === "edited") {
-            console.log(`[GitHub/Webhook] Repo updated: ${event.repository.full_name}`);
-            await supabaseAdmin
-                .from('repositories')
-                .update({
-                    name: event.repository.name,
-                    full_name: event.repository.full_name,
-                    description: event.repository.description,
-                    url: event.repository.html_url,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('github_id', repoGithubId);
-        }
-
-        if (action === "deleted") {
-            console.log(`[GitHub/Webhook] Repo deleted on GitHub: ${event.repository.full_name}`);
-            
-            const { data: repo } = await supabaseAdmin
-                .from('repositories')
-                .select('user_id, name')
-                .eq('github_id', repoGithubId)
-                .single();
-
-            if (repo) {
-                await supabaseAdmin.from('notifications').insert({
-                    user_id: repo.user_id,
-                    title: 'Repository Deleted on GitHub',
-                    message: `The repository ${repo.name} was deleted on GitHub. Analysis has been stopped.`, 
-                    type: 'error'
-                });
-
-                await supabaseAdmin
-                    .from('repositories')
-                    .update({ 
-                        status: 'Deleted',
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('github_id', repoGithubId);
-            }
-        }
-    }
-
-    // Handle Pull Requests
-    if (eventName === "pull_request" && event.repository && event.pull_request) {
-      const action = event.action;
-      const repoGithubId = event.repository.id;
-      const prNumber = event.pull_request.number;
-      
-      console.log(`[GitHub/Webhook] Processing Pull Request #${prNumber} action: ${action}`);
-
-      const { data: repo } = await supabaseAdmin
-        .from('repositories')
-        .select('id, user_id, status, open_prs_count')
-        .eq('github_id', repoGithubId)
-        .single();
-
-      if (!repo) {
-        console.log(`[GitHub/Webhook] Repo ${repoGithubId} not found in DB. Ignoring.`);
-        return NextResponse.json({ message: "Repo not monitored" });
-      }
-
-      if (action === "opened" || action === "closed" || action === "reopened" || action === "synchronize") {
-          console.log(`[GitHub/Webhook] Syncing metadata and PR count for ${repo.id}. Action: ${action}`);
-          
-          try {
-              const octokit = await app.getInstallationOctokit(event.installation!.id);
-              const { data: repoData } = await octokit.request('GET /repos/{owner}/{repo}', {
-                  owner: event.repository.owner.login,
-                  repo: event.repository.name,
-              });
-
-              const { data: openPulls } = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
-                  owner: event.repository.owner.login,
-                  repo: event.repository.name,
-                  state: 'open',
-                  per_page: 100 
-              });
-              
-              const prCount = openPulls.length;
-              
-              await supabaseAdmin
-                .from('repositories')
-                .update({ 
-                    name: repoData.name,
-                    full_name: repoData.full_name,
-                    description: repoData.description,
-                    language: repoData.language,
-                    url: repoData.html_url,
-                    open_prs_count: prCount,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', repo.id);
-                
-              console.log(`[GitHub/Webhook] Sync complete. PR count: ${prCount}`);
-          } catch (e) {
-              console.error("[GitHub/Webhook] Failed to sync repo details:", e);
-          }
-      }
-
-      if (action === "opened" || action === "reopened") {
-        if (repo.status !== 'Running') {
-          console.log(`[GitHub/Webhook] Repo status is ${repo.status}. Ignoring roast trigger.`);
-
-          if (action === 'opened' || action === 'reopened') {
-            await supabaseAdmin.from('notifications').insert({
-              user_id: repo.user_id,
-              title: 'Roast Skipped',
-              message: `A PR (#${prNumber}) was ${action} in ${event.repository.full_name}, but the bot is currently ${repo.status}. Unpause it to resume analysis.`, 
-              type: 'warning',
-              link: `/dashboard/repos/${event.repository.name}`,
-            });
-          }
-
-          return NextResponse.json({ message: `Repo ${repo.status}` });
-        }
-
-        await triggerAutomatedRoast(app, supabaseAdmin, event, repo, prNumber);
-      }
-    }
-
-    return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error("[GitHub/Webhook] Error:", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: "Invalid request" }, { status: 401 });
   }
 }
 
+/**
+ * Handle user comments/mentions
+ */
+async function handleIssueComment(app: App, supabase: SupabaseClient, event: GitHubWebhookPayload) {
+    if (event.action !== "created" || !event.issue?.pull_request || !event.comment) {
+        return NextResponse.json({ success: true });
+    }
+
+    const commentBody = event.comment.body.toLowerCase();
+    const isMentioned = commentBody.includes('roastbot');
+    const userLogin = event.comment.user.login;
+    const isNotBot = !userLogin.includes('[bot]');
+
+    if (!isMentioned || !isNotBot) return NextResponse.json({ success: true });
+
+    const { data: repo } = await supabase
+        .from('repositories')
+        .select('id, user_id, full_name, name, status')
+        .eq('github_id', event.repository!.id)
+        .single();
+
+    if (!repo) return NextResponse.json({ message: "Repo not found" });
+
+    // Fetch user persona once
+    const { data: settings } = await supabase
+        .from('user_settings')
+        .select('persona, installation_id')
+        .eq('user_id', repo.user_id)
+        .single();
+
+    const persona = getPersona(settings?.persona);
+    const prNumber = event.issue.number;
+    const wantsRoast = commentBody.includes('ready') || commentBody.includes('fixed') || commentBody.includes('done') || commentBody.includes('roast') || commentBody.includes('review');
+
+    if (wantsRoast) {
+        const octokit = await app.getInstallationOctokit(event.installation!.id);
+        
+        // Parallel acknowledgement post + notif insert
+        await Promise.all([
+            octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+                owner: event.repository!.owner.login,
+                repo: event.repository!.name,
+                issue_number: prNumber,
+                body: persona.acknowledgement,
+            }),
+            supabase.from('notifications').insert({
+                user_id: repo.user_id,
+                title: 'Analysis Started',
+                message: `RoastBot is currently dissecting PR #${prNumber} in ${event.repository!.name}.`,
+                type: 'info',
+                link: `/dashboard/repos/${event.repository!.name}`
+            })
+        ]);
+
+        await triggerAutomatedRoast(app, supabase, event, repo, prNumber);
+    } else {
+        const reply = await processReply({
+            user_id: repo.user_id,
+            repo_name: repo.full_name,
+            pr_number: prNumber,
+            user_comment: event.comment.body,
+            user_login: userLogin
+        });
+
+        const octokit = await app.getInstallationOctokit(event.installation!.id);
+        await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+            owner: event.repository!.owner.login,
+            repo: event.repository!.name,
+            issue_number: prNumber,
+            body: reply,
+        });
+    }
+
+    return NextResponse.json({ success: true });
+}
+
+/**
+ * Handle new PRs and commit updates
+ */
+async function handlePullRequest(app: App, supabase: SupabaseClient, event: GitHubWebhookPayload) {
+    const { action, repository, pull_request } = event;
+    if (!repository || !pull_request) return NextResponse.json({ success: true });
+
+    const prNumber = pull_request.number;
+    const { data: repo } = await supabase
+        .from('repositories')
+        .select('id, user_id, status, open_prs_count')
+        .eq('github_id', repository.id)
+        .single();
+
+    if (!repo) return NextResponse.json({ message: "Repo not monitored" });
+
+    // Sync metadata
+    if (["opened", "closed", "reopened", "synchronize"].includes(action!)) {
+        try {
+            const octokit = await app.getInstallationOctokit(event.installation!.id);
+            const [{ data: repoData }, { data: openPulls }] = await Promise.all([
+                octokit.request('GET /repos/{owner}/{repo}', { owner: repository.owner.login, repo: repository.name }),
+                octokit.request('GET /repos/{owner}/{repo}/pulls', { owner: repository.owner.login, repo: repository.name, state: 'open', per_page: 100 })
+            ]);
+            
+            await supabase.from('repositories').update({ 
+                name: repoData.name,
+                full_name: repoData.full_name,
+                description: repoData.description,
+                language: repoData.language,
+                url: repoData.html_url,
+                open_prs_count: openPulls.length,
+                updated_at: new Date().toISOString()
+            }).eq('id', repo.id);
+        } catch (e) { console.error("Sync failed", e); }
+    }
+
+    // Trigger Roast if needed
+    if (["opened", "reopened"].includes(action!)) {
+        if (repo.status === 'Running') {
+            await triggerAutomatedRoast(app, supabase, event, repo, prNumber);
+        } else {
+            await supabase.from('notifications').insert({
+                user_id: repo.user_id,
+                title: 'Roast Skipped',
+                message: `PR #${prNumber} was ${action}, but the bot is ${repo.status}.`,
+                type: 'warning',
+                link: `/dashboard/repos/${repository.name}`,
+            });
+        }
+    }
+
+    return NextResponse.json({ success: true });
+}
+
+/**
+ * Handle App installations
+ */
+async function handleInstallation(supabase: SupabaseClient, event: GitHubWebhookPayload) {
+    const { action, sender, installation } = event;
+    const githubId = sender.id;
+
+    if (action === "created") {
+        await supabase.from('user_settings').update({ installation_id: installation!.id }).eq('github_id', githubId);
+    } else if (action === "deleted") {
+        await supabase.from('user_settings').update({ installation_id: null, suspended: false }).eq('github_id', githubId);
+    } else if (action === "suspend") {
+        await supabase.from('user_settings').update({ suspended: true }).eq('github_id', githubId);
+    } else if (action === "unsuspend") {
+        await supabase.from('user_settings').update({ suspended: false }).eq('github_id', githubId);
+    }
+    return NextResponse.json({ success: true });
+}
+
+/**
+ * Handle repo rename/delete on GitHub
+ */
+async function handleRepositoryUpdate(supabase: SupabaseClient, event: GitHubWebhookPayload) {
+    const { action, repository } = event;
+    if (!repository) return NextResponse.json({ success: true });
+
+    if (action === "renamed" || action === "edited") {
+        await supabase.from('repositories').update({
+            name: repository.name,
+            full_name: repository.full_name,
+            description: repository.description,
+            url: repository.html_url,
+            updated_at: new Date().toISOString()
+        }).eq('github_id', repository.id);
+    }
+
+    if (action === "deleted") {
+        const { data: repo } = await supabase.from('repositories').select('user_id, name').eq('github_id', repository.id).single();
+        if (repo) {
+            await supabase.from('notifications').insert({
+                user_id: repo.user_id,
+                title: 'Repository Deleted on GitHub',
+                message: `The repository ${repo.name} was deleted on GitHub. Analysis has been stopped.`,
+                type: 'error'
+            });
+            await supabase.from('repositories').update({ status: 'Deleted', updated_at: new Date().toISOString() }).eq('github_id', repository.id);
+        }
+    }
+    return NextResponse.json({ success: true });
+}
+
 async function triggerAutomatedRoast(
-    app: ReturnType<typeof getGitHubApp>, 
+    app: App, 
     supabaseAdmin: SupabaseClient, 
     event: GitHubWebhookPayload, 
     repo: { id: number; user_id: string; status: string }, 
     prNumber: number
 ) {
-    console.log(`[GitHub/Webhook] Triggering Roast for PR #${prNumber}...`);
-
-    if (!event.repository || !event.pull_request) return;      
-    const { data: settings } = await supabaseAdmin
-      .from('user_settings')
-      .select('installation_id')
-      .eq('user_id', repo.user_id)
-      .single();
-
-    if (!settings?.installation_id) {
-      console.error('[GitHub/Webhook] No installation found for user. Cannot roast.');
-      return;
-    }
+    if (!event.repository) return;      
+    const { data: settings } = await supabaseAdmin.from('user_settings').select('installation_id').eq('user_id', repo.user_id).single();
+    if (!settings?.installation_id) return;
 
     try {
       const octokit = await app.getInstallationOctokit(settings.installation_id);
-
       const { data: rawDiff } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
           owner: event.repository.owner.login,
           repo: event.repository.name,
           pull_number: prNumber,
-          headers: {
-              accept: 'application/vnd.github.v3.diff',
-          },
+          headers: { accept: 'application/vnd.github.v3.diff' },
       });
 
       const diff = rawDiff as unknown as string;
       const MAX_DIFF_SIZE = 100000;
-      let processedCode = diff;
-      let wasTruncated = false;
+      const processedCode = diff.length > MAX_DIFF_SIZE ? diff.substring(0, MAX_DIFF_SIZE) : diff;
 
-      if (diff.length > MAX_DIFF_SIZE) {
-          processedCode = diff.substring(0, MAX_DIFF_SIZE);
-          wasTruncated = true;
-      }
+      const roast = await processAutomatedRoast({
+          repo_id: repo.id,
+          user_id: repo.user_id,
+          pr_number: prNumber,
+          pr_title: event.pull_request?.title || event.issue?.title || "PR",
+          repo_full_name: event.repository.full_name,
+          code: processedCode,
+          was_truncated: diff.length > MAX_DIFF_SIZE,
+      });
 
-            // 3. Process the Roast (AI + DB Save)
-            const roast = await processAutomatedRoast({
-                repo_id: repo.id,
-                user_id: repo.user_id,
-                pr_number: prNumber,
-                pr_title: event.pull_request.title,
-                repo_full_name: event.repository.full_name,
-                code: processedCode,
-                was_truncated: wasTruncated,
-            });
+      const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';
+      
+      await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+          owner: event.repository.owner.login,
+          repo: event.repository.name,
+          pull_number: prNumber,
+          body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
+          event: reviewEvent
+      });
 
-            // 4. Post Review to GitHub
-            // If should_block is true, we use REQUEST_CHANGES. If false, we use APPROVE to unlock the PR.
-            const reviewEvent = roast.should_block ? 'REQUEST_CHANGES' : 'APPROVE';
-            
-            await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
-                owner: event.repository.owner.login,
-                repo: event.repository.name,
-                pull_number: prNumber,
-                body: `## 💀 RoastBot Autopsy Report\n\n${roast.text}\n\n---\n*Sent with attitude by RoastBot*`,
-                event: reviewEvent
-            });
+      await supabaseAdmin.from('notifications').insert({
+          user_id: repo.user_id,
+          title: roast.should_block ? '🛑 PR Merge Blocked' : '✅ Roast Completed',
+          message: roast.should_block 
+              ? `PR #${prNumber} in ${event.repository.name} has critical issues and cannot be merged.` 
+              : `PR #${prNumber} in ${event.repository.name} has been reviewed. Score: ${roast.score}/10`,
+          type: roast.should_block ? 'error' : 'success',
+          link: `/dashboard/repos/${event.repository.name}`
+      });
 
-            // 5. Send In-App Notification
-            const notifTitle = roast.should_block ? '🛑 PR Merge Blocked' : '✅ Roast Completed';
-            const notifMessage = roast.should_block 
-                ? `PR #${prNumber} in ${event.repository.name} has critical issues and cannot be merged.` 
-                : `PR #${prNumber} in ${event.repository.name} has been reviewed. Score: ${roast.score}/10`;
-
-            await supabaseAdmin.from('notifications').insert({
-                user_id: repo.user_id,
-                title: notifTitle,
-                message: notifMessage,
-                type: roast.should_block ? 'error' : 'success',
-                link: `/dashboard/repos/${event.repository.name}`
-            });
-
-            console.log(`[GitHub/Webhook] Roast ${reviewEvent} and notification posted for PR #${prNumber}`);
     } catch (e: unknown) {
       console.error('[GitHub/Webhook] Roast execution failed:', e);
     }

@@ -3,6 +3,7 @@
 import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { getPersona } from '@/lib/personas';
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,27 +27,11 @@ export async function processAutomatedRoast(params: {
     .eq('user_id', user_id)
     .single();
 
-  const persona = settings?.persona || 'toxic';
-  
-  let personaInstruction = "";
-  switch (persona) {
-    case 'passive':
-        personaInstruction = "You are a Passive Aggressive Senior Engineer. Be subtle but stinging. Always provide code suggestions. If the code is good, begrudgingly admit it.";
-        break;
-    case 'shakespearean':
-        personaInstruction = "You are William Shakespeare if he was a burned out developer. Roast using Old English and play metaphors. Always provide code examples.";
-        break;
-    case 'honest':
-        personaInstruction = "You are a helpful, mentorship-focused Senior Engineer. Provide constructive feedback and refactoring examples kindly.";
-        break;
-    case 'toxic':
-    default:
-        personaInstruction = "You are a Senior Software Engineer who is burnt out, cynical, and brutally honest. You hate bad code. Be mean, funny, but technically correct. Max score is 9/10.";
-        break;
-  }
+  const persona = getPersona(settings?.persona);
 
   const BT = "```";
-  const systemPrompt = `${personaInstruction} 
+  const systemPrompt = `
+    ${persona.instruction} 
     
     Review the code in the PR titled '${pr_title}'.
     ${was_truncated ? "NOTE: This diff was very large and has been truncated. Analyze what is visible." : ""}
@@ -68,7 +53,7 @@ export async function processAutomatedRoast(params: {
     1. BE EXTREMELY CONCISE. Use maximum 2-3 bullet points. No fluff.
     2. Use a header "🚨 CRITICAL" for severe problems.
     3. Use a header "⚠️ VIOLATIONS" for smaller issues.
-    4. REFACTORING: ONLY provide a "🛠️ REFACTOR" snippet if essential.
+    4. REFACTORING: ONLY provide a "${BT}🛠️ REFACTOR" snippet if essential.
     5. BLOCKING: Set "should_block" to true only if there are security risks, logical bugs, or absolute garbage.
     6. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.`;
 
@@ -135,20 +120,12 @@ export async function processReply(params: {
         .eq('user_id', user_id)
         .single();
 
-    const persona = settings?.persona || 'toxic';
-    let instruction = "";
-    
-    switch (persona) {
-        case 'passive': instruction = "Passive-aggressive. Give a backhanded compliment."; break;
-        case 'shakespearean': instruction = "Old English poetic insults."; break;
-        case 'honest': instruction = "Helpful and professional mentor."; break;
-        default: instruction = "Toxic, mean, and arrogant Senior Dev."; break;
-    }
+    const persona = getPersona(settings?.persona);
 
     try {
         const { text } = await generateText({
             model: google('models/gemini-flash-latest'),
-            system: `You are a bot named RoastBot. Persona: ${instruction}. A user named @${user_login} commented on your roast: "${user_comment}". Reply to them. BE EXTREMELY CONCISE. Max 2 sentences. Keep the persona.`,
+            system: `You are a bot named RoastBot. Persona instructions: ${persona.instruction}. A user named @${user_login} commented on your roast: "${user_comment}". Reply to them. BE EXTREMELY CONCISE. Max 2 sentences. Keep the persona.`,
             prompt: `Reply to @${user_login}`,
         });
 

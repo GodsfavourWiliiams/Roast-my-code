@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google';
 import { streamText } from 'ai';
 import { createClient } from '@/lib/supabase/server';
+import { getPersona } from '@/lib/personas';
 
 export const maxDuration = 60; // Allow 60 seconds for generation
 
@@ -26,98 +27,90 @@ export async function POST(req: Request) {
       });
     }
 
-        // Fetch Repo Metadata for constructing links
-        const { data: repo } = await supabase
-            .from('repositories')
-            .select('full_name, default_branch')
-            .eq('id', repoId)
-            .single();
+    // Fetch Repo Metadata for constructing links
+    const { data: repo } = await supabase
+        .from('repositories')
+        .select('full_name, default_branch')
+        .eq('id', repoId)
+        .single();
+
+    const repoFullName = repo?.full_name || 'unknown/repo';
+    const branch = repo?.default_branch || 'main';
+    const editUrl = `https://github.com/${repoFullName}/edit/${branch}/${filename}`;
+
+    // Fetch User Settings for Persona
+    const { data: settings } = await supabase
+        .from('user_settings')
+        .select('persona')
+        .eq('user_id', user.id)
+        .single();
+
+    const persona = getPersona(settings?.persona);
     
-        const repoFullName = repo?.full_name || 'unknown/repo';
-        const branch = repo?.default_branch || 'main';
-        const editUrl = `https://github.com/${repoFullName}/edit/${branch}/${filename}`;
-    
-        // Fetch User Settings for Persona
-        const { data: settings } = await supabase
-            .from('user_settings')
-            .select('persona')
-            .eq('user_id', user.id)
-            .single();
-    
-        const persona = settings?.persona || 'toxic';
+    const BT = "```";
+    const systemPrompt = `
+      ${persona.instruction} 
+      
+      Review the code in the file '${filename}'.
+      
+      CRITICAL: You MUST provide your metrics in a JSON block at the VERY END of your response.
+      The response should be Markdown feedback, followed by the JSON block.
+      
+      JSON format:
+      ${BT}json
+      {
+        "score": number,
+        "violations": number,
+        "critical_issues": number,
+        "should_block": boolean
+      }
+      ${BT}
+      
+      STRUCTURE YOUR FEEDBACK:
+      1. BE EXTREMELY CONCISE. Use maximum 2-3 bullet points. No fluff.
+      2. Use a header "🚨 CRITICAL" for severe problems.
+      3. Use a header "⚠️ VIOLATIONS" for smaller issues.
+      4. For EVERY issue mentioned, identify the line/logic and provide this exact link to fix it: [Fix on GitHub](${editUrl})
+      5. REFACTORING: ONLY provide a "${BT}🛠️ REFACTOR" snippet if essential.
+      6. BLOCKING: Set "should_block" to true only if there are security risks, logical bugs, or absolute garbage.
+      7. PERFECT CODE: If clean, provide a 1-sentence funny acknowledgement and set should_block to false.
+    `;
+
+    // @ts-ignore
+    const result = streamText({
+      model: google('models/gemini-flash-latest'),
+      system: systemPrompt,
+      prompt: `Review this code:\n\n${code}`,
+      onFinish: async ({ text }) => {
+        console.log(`[API/Roast] Stream finished. Generated ${text.length} characters.`);
         
-        let personaInstruction = "";
-        switch (persona) {
-            case 'passive':
-                personaInstruction = "You are a Passive Aggressive Senior Engineer. Don't be outwardly mean, but make backhanded compliments. Be subtle but stinging. If the code is good, begrudgingly admit it. ALWAYS provide a code snippet showing how you would have done it 'better'.";
-                break;
-            case 'shakespearean':
-                personaInstruction = "You are William Shakespeare if he was a burned out developer. Roast the code using Old English, metaphors, and insults from his plays. Be dramatic. If the code is actually good, praise it like a sonnet. Regardless of quality, thee MUST provide a code example of the 'true path'.";
-                break;
-            case 'honest':
-                personaInstruction = "You are a helpful, mentorship-focused Senior Engineer. Do NOT be toxic or mean. Instead, provide constructive, actionable feedback. Point out security flaws, performance issues, and bad practices kindly. Crucially, PROVIDE CODE EXAMPLES of how to refactor the code to be better. If the code is good, verify it and explain why.";
-                break;
-            case 'toxic':
-            default:
-                personaInstruction = "You are a Senior Software Engineer who is burnt out, cynical, and brutally honest. You hate bad code. Be mean, be funny, but be technically correct. Don't just insult; explain WHY it's garbage. HOWEVER, if the code is actually good/perfect, give it a high score (8-9) but NEVER give a 10/10. ALWAYS provide a refactored code snippet showing how to fix the mess.";
-                break;
-        }
-    
-        const systemPrompt = `
-          ${personaInstruction} 
-          
-          Review the code in the file '${filename}'.
-          
-          CRITICAL: You MUST start your response with exactly this format:
-          Score: X/10
-          Violations: X
-          Critical Issues: X
-          
-          STRUCTURE YOUR FEEDBACK:
-          1. Use a header "🚨 CRITICAL ISSUES" for the most severe problems.
-          2. Use a header "⚠️ VIOLATIONS" for smaller issues.
-          3. For EVERY issue mentioned, identify the line/logic and provide this exact link to fix it: [Fix on GitHub](${editUrl})
-          4. ALWAYS end with a "🛠️ PROPOSED REFACTOR" section containing a complete, improved code block.
-        `;
-    
-        console.log(`[API/Roast] Starting Gemini stream using gemini-flash-latest with persona: ${persona}`);
-    
-        const result = streamText({
-          model: google('models/gemini-flash-latest'),
-          system: systemPrompt,
-          prompt: `Review this code:\n\n${code}`,          onFinish: async ({ text }) => {
-            console.log(`[API/Roast] Stream finished. Generated ${text.length} characters.`);
-            
-            if (text.length === 0) {
-                console.error("[API/Roast] Error: Generated text is empty.");
-                return; 
+        const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+        let score = null;
+        let violations = 0;
+        let critical = 0;
+
+        if (jsonMatch) {
+            try {
+                const metrics = JSON.parse(jsonMatch[1]);
+                score = metrics.score;
+                violations = metrics.violations || 0;
+                critical = metrics.critical_issues || 0;
+            } catch (e) {
+                console.error("[API/Roast] JSON Parse Failed", e);
             }
-    
-            // Improved Regex for structured data
-            const scoreMatch = text.match(/Score:\s*(\d+)\/10/i);
-            const violationsMatch = text.match(/Violations:\s*(\d+)/i);
-            const criticalMatch = text.match(/Critical Issues:\s*(\d+)/i);
-    
-            const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
-            const violations = violationsMatch ? parseInt(violationsMatch[1]) : 0;
-            const critical = criticalMatch ? parseInt(criticalMatch[1]) : 0;
-    
-            console.log(`[API/Roast] Parsed metrics - Score: ${score}, Violations: ${violations}, Critical: ${critical}`);
-    
-            const { error: dbError } = await supabase.from('roasts').insert({
-              user_id: user.id,
-              repo_id: repoId,
-              pr_title: `Manual Roast: ${filename}`,
-              roast_content: text,
-              roast_score: score,
-              violations_count: violations,
-              critical_issues_count: critical,
-            });
-        if (dbError) {
-            console.error("[API/Roast] Database Insert Error:", dbError);
-        } else {
-            console.log("[API/Roast] Roast saved successfully.");
         }
+
+        const cleanText = text.replace(/```json[\s\S]*?```/, "").trim();
+
+        await supabase.from('roasts').insert({
+          user_id: user.id,
+          repo_id: repoId,
+          pr_title: `Manual Roast: ${filename}`,
+          roast_content: cleanText,
+          roast_score: score,
+          violations_count: violations,
+          critical_issues_count: critical,
+        });
       },
     });
 
