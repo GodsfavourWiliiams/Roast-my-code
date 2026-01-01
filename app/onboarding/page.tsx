@@ -12,6 +12,7 @@ import { syncInstallation } from '@/app/actions/github-installation';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ROUTES } from '@/lib/routes';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -96,7 +97,7 @@ export default function OnboardingPage() {
             {!isInstalled && (
               <Button size="sm" asChild>
                 <a
-                  href="https://github.com/apps/roastbot-app/installations/new"
+                  href={ROUTES.EXTERNAL.GITHUB_APP_INITIAL_INSTALL('roastbot-godsfavourwilliams')}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

@@ -39,6 +39,7 @@ import { DangerZoneDialog } from '@/components/danger-zone-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { syncInstallation } from '@/app/actions/github-installation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ROUTES } from '@/lib/routes';
 
 export default function SettingsPage() {
   const { setTheme, theme } = useTheme();
@@ -421,7 +422,7 @@ export default function SettingsPage() {
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <a
-                    href={`https://github.com/settings/installations/${settings.installation_id}`}
+                    href={ROUTES.EXTERNAL.GITHUB_APP_MANAGE_INSTALL(settings.installation_id)}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -440,7 +441,7 @@ export default function SettingsPage() {
                   </div>
                   <Button size="sm" asChild>
                     <a
-                      href="https://github.com/settings/apps/roastbot-godsfavourwilliams/installations"
+                      href={ROUTES.EXTERNAL.GITHUB_APP_INITIAL_INSTALL('roastbot-godsfavourwilliams')}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

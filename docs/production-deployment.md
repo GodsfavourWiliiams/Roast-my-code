@@ -1,9 +1,19 @@
 # Production Deployment Checklist
 
-## GitHub Webhook Configuration
+## GitHub App Configuration
+
+### 0. Make App Public (REQUIRED for customer installations)
+**CRITICAL**: If your app is private, customers cannot install it!
+
+1. Go to your GitHub App settings: `https://github.com/settings/apps/roastbot-godsfavourwilliams`
+2. Scroll to the "Public/Private" or "Visibility" section
+3. Change from **Private** to **Public**
+4. Save changes
+
+**Why?** Private apps can only be installed by the app owner. Public apps can be installed by anyone.
 
 ### 1. Update Webhook URL in GitHub
-- Go to your GitHub App settings: `https://github.com/settings/apps/YOUR_APP_NAME`
+- Go to your GitHub App settings: `https://github.com/settings/apps/roastbot-godsfavourwilliams`
 - Navigate to "Webhook" section
 - Update the webhook URL to: `https://www.roastmycode.online/api/webhooks/github`
 - Ensure "Active" is checked
@@ -81,18 +91,84 @@ GitHub provides webhook delivery logs:
 
 ## Troubleshooting
 
-### Webhook not triggering?
-- ✅ Check webhook URL is correct: `https://www.roastmycode.online/api/webhooks/github`
-- ✅ Verify `GITHUB_WEBHOOK_SECRET` matches GitHub App settings (same value as local)
-- ✅ Check production logs for errors
-- ✅ Ensure GitHub App is installed on the repository
+### Webhook not triggering in production?
+
+**Step 1: Verify Route is Accessible**
+1. Visit: `https://roastmycode.online/api/webhooks/github/test`
+2. You should see a JSON response with environment variable status
+3. If you get 404, the route isn't deployed correctly
+4. If you see missing config, check your environment variables
+
+**Step 2: Check GitHub App Webhook Configuration**
+1. Go to: `https://github.com/settings/apps/roastbot-godsfavourwilliams`
+2. Navigate to "Webhook" section
+3. Verify the webhook URL is exactly: `https://roastmycode.online/api/webhooks/github`
+   - ⚠️ **Important**: Use `https://roastmycode.online` (not `www.roastmycode.online`) if that's your domain
+   - The URL must match exactly what you configured
+4. Check "Recent Deliveries" tab for failed attempts
+5. Click on a failed delivery to see the error message
+
+**Step 3: Verify Environment Variables**
+1. In your hosting platform (Vercel/Next.js), go to Settings → Environment Variables
+2. Verify these are set (copy exact values from `.env.local`):
+   - `GITHUB_APP_ID`
+   - `GITHUB_PRIVATE_KEY` (entire PEM key content)
+   - `GITHUB_WEBHOOK_SECRET` ⚠️ **CRITICAL** - must match GitHub App settings
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+3. After updating env vars, **redeploy** your application
+
+**Step 4: Check Production Logs**
+1. Go to your hosting platform's logs (Vercel → Functions → Logs)
+2. Look for `[GitHub/Webhook]` entries
+3. Common errors:
+   - `Signature verification failed` → `GITHUB_WEBHOOK_SECRET` mismatch
+   - `GITHUB_WEBHOOK_SECRET is not set` → Missing environment variable
+   - `Missing GITHUB_APP_ID` → Missing environment variable
+
+**Step 5: Test Webhook Manually**
+1. In GitHub App settings → Webhook → Recent Deliveries
+2. Click "Redeliver" on a recent failed delivery
+3. Check your production logs immediately after
+4. You should see: `[GitHub/Webhook] Received event: ...`
 
 ### Signature verification failing?
-- ✅ `GITHUB_WEBHOOK_SECRET` must match exactly (same value in local and production)
-- ✅ Check production environment variables are set correctly (copy from `.env.local`)
-- ✅ Verify the secret in GitHub App settings matches
+
+**Most Common Issue**: `GITHUB_WEBHOOK_SECRET` mismatch
+
+1. **Get the secret from GitHub**:
+   - Go to GitHub App settings → Webhook
+   - The "Secret" field shows what GitHub expects
+   - If it's hidden, you may need to reset it
+
+2. **Get the secret from your production environment**:
+   - Check your hosting platform's environment variables
+   - Copy the exact value of `GITHUB_WEBHOOK_SECRET`
+
+3. **Compare them**:
+   - They must match **exactly** (case-sensitive, no extra spaces)
+   - If they don't match:
+     - Option A: Update `GITHUB_WEBHOOK_SECRET` in production to match GitHub
+     - Option B: Update the secret in GitHub App settings to match production
+   - **After updating, redeploy your application**
+
+4. **Verify in logs**:
+   - After redeploy, check logs for: `[GitHub/Webhook] Signature verified successfully`
+   - If still failing, check: `[GitHub/Webhook] Webhook secret length: X`
+
+### Webhook URL Issues
+
+**Domain mismatch (www vs non-www)**:
+- If your domain is `roastmycode.online` (no www), use that in GitHub
+- If your domain is `www.roastmycode.online` (with www), use that in GitHub
+- The URL in GitHub App settings must match your actual domain exactly
+
+**HTTPS required**:
+- GitHub requires HTTPS for webhooks
+- Ensure your domain has valid SSL certificate
+- Test: `curl https://roastmycode.online/api/webhooks/github/test`
 
 ### Webhooks going to wrong environment?
 - ✅ Remember: GitHub sends to the URL you configure, not automatically to production
 - ✅ For local dev: Use ngrok and update GitHub webhook URL temporarily
-- ✅ For production: Always point to `https://www.roastmycode.online/api/webhooks/github`
+- ✅ For production: Always point to `https://roastmycode.online/api/webhooks/github` (or your actual domain)
