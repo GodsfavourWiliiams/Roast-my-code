@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 export interface ScoreTrend {
   date: string;
   score: number;
+  timestamp: string;
 }
 
 export interface RepoCrime {
@@ -34,7 +35,8 @@ export async function getAnalyticsData(): Promise<{
 
   const scoreTrend: ScoreTrend[] = (trendData || []).map(r => ({
     date: new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    score: r.roast_score || 0
+    score: r.roast_score || 0,
+    timestamp: new Date(r.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }));
 
   // 2. Fetch Repo Crimes (Violations grouped by repo)

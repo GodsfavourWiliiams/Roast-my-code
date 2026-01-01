@@ -16,7 +16,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       // refetchQueries forces an immediate network call regardless of state
       queryClient.refetchQueries({ queryKey: ['savedRepos'], type: 'active' });
       queryClient.refetchQueries({
-        queryKey: ['dashboardStats'],
+        queryKey: ['dashboardData'],
         type: 'active',
       });
       queryClient.refetchQueries({ queryKey: ['repoDetails'], type: 'active' });

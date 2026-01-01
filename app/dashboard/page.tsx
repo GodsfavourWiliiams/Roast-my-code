@@ -150,9 +150,39 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={score_trend}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                        <XAxis dataKey="date" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} />
+                        <XAxis 
+                          dataKey="timestamp" 
+                          stroke="#888888" 
+                          fontSize={10} 
+                          tickLine={false} 
+                          axisLine={false} 
+                          tickFormatter={(value) => {
+                            // Extract just the date part "Jan 1" from the full timestamp string
+                            // Assuming format "Jan 1, 10:00 AM" or similar from toLocaleString
+                            return value.split(',')[0];
+                          }}
+                        />
                         <YAxis stroke="#888888" fontSize={10} tickLine={false} axisLine={false} domain={[0, 10]} />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }} />
+                        <RechartsTooltip 
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="rounded-lg border border-border bg-card p-2 shadow-sm">
+                                  <div className="mb-1 text-xs font-bold text-muted-foreground">
+                                    {payload[0].payload.timestamp}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-primary" />
+                                    <span className="text-sm font-bold text-foreground">
+                                      Score: {payload[0].value}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            }
+                            return null
+                          }}
+                        />
                         <Line type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary)', r: 4 }} />
                     </LineChart>
                 </ResponsiveContainer>

@@ -23,6 +23,7 @@ export interface RecentRoast {
 export interface ScoreTrend {
   date: string;
   score: number;
+  timestamp: string;
 }
 
 export interface RepoCrime {
@@ -52,7 +53,8 @@ export async function getDashboardData(): Promise<{
     const { data: roast_data_unified } = await supabase
         .from('roasts')
         .select('violations_count, critical_issues_count, roast_score, created_at, repositories ( name )')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
 
     let total_violations = 0;
     let critical_issues = 0;
@@ -60,6 +62,7 @@ export async function getDashboardData(): Promise<{
     const repo_map: Record<string, RepoCrime> = {};
 
     if (roast_data_unified?.length) {
+        console.log('[Dashboard] Raw Roast Data:', roast_data_unified.map(r => ({ id: r.created_at, score: r.roast_score })));
         const totals = roast_data_unified.reduce((acc, curr) => ({
             violations: acc.violations + (curr.violations_count || 0),
             critical: acc.critical + (curr.critical_issues_count || 0),
@@ -100,7 +103,8 @@ export async function getDashboardData(): Promise<{
 
     const score_trend: ScoreTrend[] = (roast_data_unified || []).map(r => ({
       date: new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      score: r.roast_score || 0
+      score: r.roast_score || 0,
+      timestamp: new Date(r.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }));
 
     return {
