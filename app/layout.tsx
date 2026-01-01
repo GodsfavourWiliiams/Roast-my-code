@@ -66,7 +66,6 @@ export const metadata: Metadata = {
     title: 'Roast My Code - AI Code Reviewer with Attitude',
     description:
       'Get brutally honest AI-powered code reviews. Connect your GitHub repository and let our AI Senior Engineer roast your pull requests.',
-    images: ['/og-image.png'],
     creator: '@roastmycode',
   },
   robots: {
@@ -81,28 +80,27 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: [
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon-48x48.png', sizes: '48x48', type: 'image/png' },
-      { url: '/favicon.ico', sizes: 'any' },
-    ],
+    icon: '/favicon.ico',
     shortcut: '/favicon.ico',
-    apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
+    apple: '/apple-touch-icon.png',
     other: [
       {
-        rel: 'android-chrome-192x192',
-        url: '/android-chrome-192x192.png',
-        sizes: '192x192',
+        rel: 'icon',
         type: 'image/png',
+        sizes: '16x16',
+        url: '/favicon-16x16.png',
       },
       {
-        rel: 'android-chrome-512x512',
-        url: '/android-chrome-512x512.png',
-        sizes: '512x512',
+        rel: 'icon',
         type: 'image/png',
+        sizes: '32x32',
+        url: '/favicon-32x32.png',
+      },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '48x48',
+        url: '/favicon-48x48.png',
       },
     ],
   },
