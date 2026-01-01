@@ -173,22 +173,25 @@ async function handleIssueComment(app: App, supabase: SupabaseClient, event: Git
     const persona = getPersona(settings?.persona);
     const prNumber = event.issue.number;
     
-    // Check if it's a question first (questions should be answered, not reviewed)
-    // Use clear heuristics: question mark OR question words (not arbitrary length)
-    const questionWords = ['how', 'why', 'what', 'when', 'where', 'which', 'who', 'can you', 'could you', 'should', 'is', 'are', 'do', 'does', 'did', 'will', 'would', 'explain', 'tell me', 'help'];
-    const hasQuestionWord = questionWords.some(word => commentBody.toLowerCase().includes(word));
-    const hasQuestionMark = commentBody.includes('?');
-    // Only classify as question if it has explicit question indicators (mark or question words)
-    // Don't use arbitrary length threshold - that creates unpredictable behavior
-    const isQuestion = hasQuestionMark || hasQuestionWord;
-    
-    // Simple keywords that trigger review (only if NOT a question)
+    // Simple logic: If comment contains a review keyword, it's a review request
+    // Everything else is treated as a question/comment to be answered
     const reviewKeywords = ['ready', 'fixed', 'done', 'roast', 'review', 'check', 'look'];
-    const hasReviewKeyword = reviewKeywords.some(keyword => commentBody.includes(keyword));
+    // Check if any review keyword appears as a whole word (not part of another word)
+    const hasReviewKeyword = reviewKeywords.some(keyword => {
+      // Match whole word - either at start/end of string or surrounded by non-word chars
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      return regex.test(commentBody);
+    });
     
-    // Review request = has keyword AND is short AND is NOT a question
-    const isShortMessage = commentBody.trim().length <= 50;
-    const isReviewRequest = !isQuestion && isShortMessage && hasReviewKeyword;
+    // Review request = has review keyword (simple as that)
+    const isReviewRequest = hasReviewKeyword;
+
+    // Log decision for debugging
+    console.log(`[GitHub/Webhook] Comment analysis:`, {
+      comment: commentBody.substring(0, 100),
+      hasReviewKeyword,
+      isReviewRequest: hasReviewKeyword ? 'REVIEW' : 'QUESTION/COMMENT',
+    });
 
     if (isReviewRequest) {
         const octokit = await app.getInstallationOctokit(event.installation!.id);
