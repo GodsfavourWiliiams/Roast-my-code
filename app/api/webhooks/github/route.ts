@@ -5,6 +5,10 @@ import { processAutomatedRoast, processReply } from "@/app/actions/roast-logic";
 import { getPersona } from "@/lib/personas";
 import { App } from "octokit";
 
+// Configure route for webhook handling
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 interface GitHubWebhookPayload {
   action: string;
   sender: {
@@ -48,14 +52,18 @@ export async function POST(req: Request) {
   let eventName: string | null = null;
   
   try {
+    // Read raw body as text (required for signature verification)
     const payload = await req.text();
     const signature = req.headers.get("x-hub-signature-256") || "";
     eventName = req.headers.get("x-github-event");
-    // const deliveryId = req.headers.get("x-github-delivery") || "unknown";
+    const deliveryId = req.headers.get("x-github-delivery") || "unknown";
 
-    // console.log(`[GitHub/Webhook] Received event: ${eventName} (delivery: ${deliveryId})`);
-    // console.log(`[GitHub/Webhook] Payload size: ${payload.length} bytes`);
-    // console.log(`[GitHub/Webhook] Has signature: ${!!signature}`);
+    // Enhanced logging for production debugging
+    console.log(`[GitHub/Webhook] Received event: ${eventName} (delivery: ${deliveryId})`);
+    console.log(`[GitHub/Webhook] Payload size: ${payload.length} bytes`);
+    console.log(`[GitHub/Webhook] Has signature: ${!!signature}`);
+    console.log(`[GitHub/Webhook] Environment: ${process.env.NODE_ENV || 'unknown'}`);
+    console.log(`[GitHub/Webhook] Webhook secret configured: ${!!process.env.GITHUB_WEBHOOK_SECRET}`);
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
@@ -73,20 +81,36 @@ export async function POST(req: Request) {
       serviceRoleKey
     );
 
+    // Validate webhook secret is configured
+    if (!process.env.GITHUB_WEBHOOK_SECRET) {
+      console.error('[GitHub/Webhook] CRITICAL: GITHUB_WEBHOOK_SECRET is not set in production environment');
+      return NextResponse.json(
+        { error: 'Webhook secret not configured' },
+        { status: 500 }
+      );
+    }
+
     const app = getGitHubApp();
     
     // Verify signature
     try {
       await app.webhooks.verify(payload, signature);
-      // console.log(`[GitHub/Webhook] Signature verified successfully`);
+      console.log(`[GitHub/Webhook] Signature verified successfully`);
     } catch (verifyError) {
       console.error(`[GitHub/Webhook] Signature verification failed:`, verifyError);
       console.error(`[GitHub/Webhook] Signature header: ${signature.substring(0, 20)}...`);
-      throw verifyError;
+      console.error(`[GitHub/Webhook] Webhook secret length: ${process.env.GITHUB_WEBHOOK_SECRET?.length || 0}`);
+      console.error(`[GitHub/Webhook] Payload preview: ${payload.substring(0, 100)}...`);
+      
+      // Return 401 for signature failures (GitHub will retry)
+      return NextResponse.json(
+        { error: "Invalid signature - check GITHUB_WEBHOOK_SECRET matches GitHub App settings" },
+        { status: 401 }
+      );
     }
     
     const event = JSON.parse(payload) as GitHubWebhookPayload;
-    // console.log(`[GitHub/Webhook] Parsed event, action: ${event.action || 'N/A'}`);
+    console.log(`[GitHub/Webhook] Parsed event, action: ${event.action || 'N/A'}`);
 
     // Route to specialized handlers
     let response;
@@ -108,7 +132,7 @@ export async function POST(req: Request) {
           response = await handleRepositoryUpdate(supabaseAdmin, event);
           break;
         default:
-          // console.log(`[GitHub/Webhook] Ignoring event type: ${eventName}`);
+          console.log(`[GitHub/Webhook] Ignoring event type: ${eventName}`);
           response = NextResponse.json({ message: 'Ignored event' });
       }
     } catch (handlerError) {
